@@ -1,0 +1,51 @@
+# Flow Testing
+
+## Testing Complete Flows
+
+Flow tests verify end-to-end interactions, not just individual components. They use the runtime API to validate the AI perspective.
+
+```tsx
+test('profile save flow completes correctly', async () => {
+  // Setup runtime
+  const { container } = render(<UserProfilePage />);
+
+  // Verify screen context
+  const screenEl = container.querySelector('[data-ai-screen]');
+  expect(screenEl?.getAttribute('data-ai-screen')).toBe('user-profile');
+
+  // Get actions
+  const saveBtn = container.querySelector('[data-ai-action="save-profile"]');
+  expect(saveBtn).toBeTruthy();
+  expect(saveBtn?.getAttribute('data-ai-state')).toBe('idle');
+
+  // Trigger action
+  fireEvent.click(saveBtn!);
+  expect(saveBtn?.getAttribute('data-ai-state')).toBe('loading');
+
+  // Verify success
+  await waitFor(() => {
+    expect(saveBtn?.getAttribute('data-ai-state')).toBe('success');
+  });
+});
+```
+
+## Playwright with data-ai-id Selectors
+
+```ts
+// playwright.config.ts
+test('create user flow', async ({ page }) => {
+  await page.goto('/users/new');
+
+  // Use stable data-ai-id selectors instead of CSS
+  await page.fill('[data-ai-id="name-field"]', 'Jane Doe');
+  await page.fill('[data-ai-id="email-field"]', 'jane@example.com');
+  await page.click('[data-ai-id="create-user"]');
+
+  // Wait for success state
+  await page.waitForSelector('[data-ai-id="create-user"][data-ai-state="success"]');
+});
+```
+
+<Callout type="tip">
+`data-ai-id` selectors are more stable than CSS selectors, class names, or text content. Use them in all E2E tests.
+</Callout>

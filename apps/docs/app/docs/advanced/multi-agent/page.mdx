@@ -1,0 +1,228 @@
+
+# Multi-agent Scenarios
+
+## Overview
+
+Multiple AI agents can operate on the same CortexUI app simultaneously. This is useful for parallelizing complex workflows, isolating agent responsibilities, and coordinating specialized agents that each handle a different domain of the UI.
+
+CortexUI's section-based architecture is the key enabler. Because every interactive region of the UI is annotated with `data-ai-section`, agents can partition their scope by section — each agent owns its territory, queries only its actions, and avoids interfering with other agents' operations.
+
+## Section-based Agent Routing
+
+The fundamental technique is filtering the available actions by section:
+
+```js
+// Agent A: handles the profile section only
+const profileActions = window.__CORTEX_UI__.getAvailableActions()
+  .filter(a => a.section === 'profile-form');
+
+// Agent B: handles the account settings section only
+const settingsActions = window.__CORTEX_UI__.getAvailableActions()
+  .filter(a => a.section === 'account-settings');
+
+// Agent C: handles the notification preferences section
+const notificationActions = window.__CORTEX_UI__.getAvailableActions()
+  .filter(a => a.section === 'notification-preferences');
+```
+
+By assigning each agent to a specific section, you create non-overlapping domains of control. Agent A cannot accidentally click an action in Agent B's section because it never queries outside its assigned section.
+
+## Setting Up Sections for Multi-agent Use
+
+Design your section boundaries to reflect natural task decomposition:
+
+```html
+<main data-ai-role="screen" data-ai-id="user-settings">
+
+  <section
+    data-ai-role="section"
+    data-ai-id="profile-form"
+    data-ai-entity="user-profile"
+    data-ai-entity-id="user-42"
+  >
+    <!-- Profile fields and save action -->
+    <button data-ai-role="action" data-ai-id="save-profile"
+            data-ai-action="save-profile" data-ai-state="idle"
+            data-ai-section="profile-form">
+      Save Profile
+    </button>
+  </section>
+
+  <section
+    data-ai-role="section"
+    data-ai-id="account-settings"
+    data-ai-entity="account"
+    data-ai-entity-id="account-42"
+  >
+    <!-- Settings controls -->
+    <button data-ai-role="action" data-ai-id="change-password"
+            data-ai-action="change-password" data-ai-state="idle"
+            data-ai-section="account-settings">
+      Change Password
+    </button>
+  </section>
+
+</main>
+```
+
+## Observing Other Agents' Actions
+
+Agents can monitor the event log to coordinate their timing and avoid operating on stale state:
+
+```js
+// Agent B watches the event log to know when Agent A has finished
+async function waitForAgentAToComplete(actionId, timeoutMs = 15_000) {
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    const events = window.__CORTEX_UI__.getRecentEvents();
+    const completed = events.some(
+      e => e.actionId === actionId && e.type === 'action_completed'
+    );
+
+    if (completed) return true;
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+
+  throw new Error(`Timed out waiting for action "${actionId}" to complete`);
+}
+
+// Agent B waits for Agent A's profile save before proceeding with settings
+await waitForAgentAToComplete('save-profile');
+
+// Now Agent B can proceed safely
+const settingsActions = window.__CORTEX_UI__.getAvailableActions()
+  .filter(a => a.section === 'account-settings');
+```
+
+## Dependency Sequencing
+
+Some multi-agent workflows have dependencies between agents. Use the event log to enforce sequencing:
+
+```ts
+// Orchestrator: coordinates multiple specialized agents
+async function runSettingsUpdateWorkflow(page: Page) {
+  // Phase 1: Agent A updates profile (runs first)
+  const profileResult = await agentA.execute(page, {
+    section: 'profile-form',
+    instruction: 'Update name and email'
+  });
+
+  if (profileResult.result !== 'success') {
+    throw new Error('Profile update failed; aborting workflow');
+  }
+
+  // Phase 2: Agents B and C run in parallel (both depend on profile being saved)
+  const [settingsResult, notificationsResult] = await Promise.all([
+    agentB.execute(page, {
+      section: 'account-settings',
+      instruction: 'Enable two-factor authentication'
+    }),
+    agentC.execute(page, {
+      section: 'notification-preferences',
+      instruction: 'Enable email notifications for all events'
+    })
+  ]);
+
+  return {
+    profile: profileResult,
+    settings: settingsResult,
+    notifications: notificationsResult
+  };
+}
+```
+
+## Filtering Events by Section
+
+The event log includes section information on each event, allowing agents to ignore events outside their scope:
+
+```js
+// Agent A only cares about events in its section
+function getRelevantEvents(section) {
+  return window.__CORTEX_UI__.getRecentEvents()
+    .filter(e => e.section === section);
+}
+
+// Agent A polls for its own completed actions
+const myEvents = getRelevantEvents('profile-form');
+const profileSaved = myEvents.some(
+  e => e.actionId === 'save-profile' && e.type === 'action_completed'
+);
+```
+
+## Conflict Avoidance Patterns
+
+Even with section boundaries, some actions span sections or have global effects. Use these patterns to avoid conflicts:
+
+**Read-before-write**: Always check the current state of an action before executing it. If another agent already triggered it and it's in `loading` state, wait rather than clicking again.
+
+```js
+function isActionSafe(actionId) {
+  const actions = window.__CORTEX_UI__.getAvailableActions();
+  const action = actions.find(a => a.id === actionId);
+  // Only safe to click if the action exists and is in idle state
+  return action?.state === 'idle';
+}
+```
+
+**Idempotency check**: Before executing a state-changing action, verify the desired end state hasn't already been achieved by another agent:
+
+```js
+async function ensureProfileSaved(page) {
+  const events = await page.evaluate(() =>
+    window.__CORTEX_UI__.getRecentEvents()
+      .filter(e => e.actionId === 'save-profile' && e.result === 'success')
+  );
+
+  // If already saved in this session, skip
+  if (events.length > 0) return events[0];
+
+  // Otherwise execute
+  await page.click('[data-ai-id="save-profile"]');
+  return waitForActionCompletion(page, 'save-profile');
+}
+```
+
+<Callout type="note">
+CortexUI does not yet provide native action locking. Coordinate agents at the application layer using section boundaries and the event log. The `data-ai-lock` primitive for claiming exclusive access to an action is on the roadmap for v0.5.
+</Callout>
+
+## Agent Identity Tagging
+
+While native agent identity support (`data-ai-agent`) is not yet in the runtime, you can implement a convention using custom attributes to mark which agent is currently interacting with an element:
+
+```js
+// Agent claims an element before interacting
+function claimElement(el, agentId) {
+  el.setAttribute('data-agent-claim', agentId);
+}
+
+// Agent releases claim after completing
+function releaseElement(el, agentId) {
+  if (el.getAttribute('data-agent-claim') === agentId) {
+    el.removeAttribute('data-agent-claim');
+  }
+}
+
+// Other agents check before acting
+function isClaimedByOther(el, myAgentId) {
+  const claim = el.getAttribute('data-agent-claim');
+  return claim !== null && claim !== myAgentId;
+}
+```
+
+Note: this convention requires all agents to cooperate. It is advisory, not enforced by the runtime.
+
+## Future: Native Multi-agent Support
+
+The CortexUI roadmap for v0.5 includes native primitives for multi-agent coordination:
+
+**`data-ai-lock`**: An attribute that marks an action as claimed by a specific agent. The runtime will surface `locked` state in `getAvailableActions()` responses, allowing other agents to know the action is in use without polling the DOM.
+
+**`data-ai-agent`**: An attribute that identifies which agent is currently interacting with an element. Visible to all agents via the runtime API, enabling coordination without external state.
+
+**Native coordination event types**: New event types in the runtime event log: `action_claimed`, `action_released`, `agent_entered_section`, `agent_exited_section` — providing a structured audit trail of multi-agent interactions.
+
+**Conflict resolution primitives**: Runtime-level conflict detection that warns when two agents attempt to interact with the same element simultaneously, with configurable resolution strategies.
+
+These primitives will make multi-agent coordination first-class in CortexUI, removing the need for application-layer workarounds and making complex multi-agent workflows reliable at scale.

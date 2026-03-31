@@ -1,0 +1,319 @@
+# Select
+
+The dropdown selection component. Select renders a styled, accessible dropdown menu backed by a native `<select>` element or a custom listbox implementation, with a full AI contract that exposes both the field type and its open/closed state.
+
+## Overview
+
+Use Select when the user must choose one value from a predefined list of options. It is typically composed inside a `FormField` container to get the label and error message wrapper.
+
+**Key features:**
+
+- Accepts a typed `options` array with `value` and `label` pairs
+- Exposes `data-ai-field-type="select"` so agents know this is a selection field
+- Sets `data-ai-state="expanded"` when the dropdown is open, allowing agents to observe the open state
+- Supports `error` and `disabled` states
+- Works as a controlled component: `value` + `onChange`
+
+<Callout type="note">
+Like `Input`, Select is designed to live inside a `FormField`. The `FormField` provides the accessible label connection, required marking, and error message rendering. Use Select standalone only when a label is provided by other means.
+</Callout>
+
+## Anatomy
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Select                                                     │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  [selected value or placeholder]  [chevron icon]    │   │
+│  │                                                     │   │
+│  │  Visual: styled trigger, focus ring, error border   │   │
+│  │  Semantic: data-ai-role, data-ai-field-type,        │   │
+│  │            data-ai-state                            │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  Dropdown panel (when expanded)                     │   │
+│  │    [option 1]                                       │   │
+│  │    [option 2]  ← selected option                    │   │
+│  │    [option 3]                                       │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Parts:
+
+- **Trigger** — the visible selected value with a chevron icon. This is the element that carries the `data-ai-*` attributes.
+- **Dropdown panel** — the list of options, rendered when the trigger is activated
+- **Option** — an individual selectable item in the panel
+- **Placeholder** — text shown when no option is selected
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `options` | `Array<{ value: string; label: string; disabled?: boolean }>` | — **(required)** | The list of options to display in the dropdown. |
+| `value` | `string \| undefined` | `undefined` | The currently selected value. Must match one of the `options` values. |
+| `onChange` | `(value: string) => void` | — **(required)** | Called with the selected option's value when the user makes a selection. |
+| `placeholder` | `string` | `"Select an option"` | Text shown when no value is selected. |
+| `disabled` | `boolean` | `false` | Disables the select. Renders with reduced opacity and prevents interaction. |
+| `error` | `boolean \| string` | `false` | Applies error border styling. Pair with `FormField` to render the message. |
+
+## AI Contract
+
+Select publishes the following `data-ai-*` attributes on the trigger element:
+
+| Attribute | Value | Purpose |
+|---|---|---|
+| `data-ai-role` | `"field"` | Marks this as a form field. |
+| `data-ai-field-type` | `"select"` | Tells agents this is a dropdown selection field. |
+| `data-ai-state` | `"expanded"` when open, `"idle"` when closed | Agents can observe when the dropdown is open and close it programmatically if needed. |
+
+**Rendered example (closed):**
+
+```html
+<div
+  role="combobox"
+  aria-expanded="false"
+  data-ai-role="field"
+  data-ai-field-type="select"
+  data-ai-state="idle"
+>
+  United States
+  <svg aria-hidden="true" /> <!-- chevron -->
+</div>
+```
+
+**Rendered example (open):**
+
+```html
+<div
+  role="combobox"
+  aria-expanded="true"
+  data-ai-role="field"
+  data-ai-field-type="select"
+  data-ai-state="expanded"
+>
+  United States
+</div>
+<!-- dropdown portal -->
+<ul role="listbox">
+  <li role="option" aria-selected="false">Canada</li>
+  <li role="option" aria-selected="true">United States</li>
+  <li role="option" aria-selected="false">United Kingdom</li>
+</ul>
+```
+
+<Callout type="tip">
+The `data-ai-state="expanded"` attribute is important for AI agents that need to sequence interactions. If an agent opens a dropdown to observe the available options, it can detect the expanded state and knows the panel is visible before trying to select an option.
+</Callout>
+
+## States
+
+### idle
+
+The dropdown is closed and displays the currently selected value or placeholder.
+
+```tsx
+<FormField label="Country" name="country">
+  <Select
+    options={countryOptions}
+    value={country}
+    onChange={setCountry}
+    placeholder="Select a country..."
+  />
+</FormField>
+```
+
+### expanded
+
+The dropdown panel is open, showing all available options.
+
+The `data-ai-state="expanded"` attribute is set automatically when the user opens the dropdown. No prop is needed to control this — it is driven by internal state.
+
+### error
+
+The select trigger has an error border. Typically paired with `FormField` error prop.
+
+```tsx
+<FormField
+  label="Country"
+  name="country"
+  required
+  error={errors.country}
+>
+  <Select
+    options={countryOptions}
+    value={country}
+    onChange={setCountry}
+    error={!!errors.country}
+    placeholder="Select a country..."
+  />
+</FormField>
+```
+
+### disabled
+
+The select is non-interactive and visually dimmed.
+
+```tsx
+<FormField label="Region" name="region">
+  <Select
+    options={regionOptions}
+    value={region}
+    onChange={setRegion}
+    disabled
+  />
+</FormField>
+```
+
+## Examples
+
+### Country select
+
+```tsx
+const countryOptions = [
+  { value: "us", label: "United States" },
+  { value: "ca", label: "Canada" },
+  { value: "gb", label: "United Kingdom" },
+  { value: "au", label: "Australia" },
+  { value: "de", label: "Germany" },
+];
+
+<FormField label="Country" name="country" required error={errors.country}>
+  <Select
+    options={countryOptions}
+    value={formData.country}
+    onChange={(v) => setFormData({ ...formData, country: v })}
+    placeholder="Select a country..."
+  />
+</FormField>
+```
+
+### Status select
+
+```tsx
+const statusOptions = [
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+  { value: "pending", label: "Pending Review" },
+  { value: "suspended", label: "Suspended" },
+];
+
+<FormField label="Account Status" name="status">
+  <Select
+    options={statusOptions}
+    value={accountStatus}
+    onChange={setAccountStatus}
+  />
+</FormField>
+```
+
+### Role assignment in a user form
+
+```tsx
+const roleOptions = [
+  { value: "admin", label: "Administrator" },
+  { value: "editor", label: "Editor" },
+  { value: "viewer", label: "Viewer (Read-only)" },
+];
+
+<FormField label="User Role" name="role" required>
+  <Select
+    options={roleOptions}
+    value={role}
+    onChange={setRole}
+    placeholder="Assign a role..."
+  />
+</FormField>
+```
+
+### Options with disabled entries
+
+```tsx
+const planOptions = [
+  { value: "free", label: "Free" },
+  { value: "pro", label: "Pro" },
+  { value: "enterprise", label: "Enterprise (Contact Sales)", disabled: true },
+];
+
+<FormField label="Plan" name="plan">
+  <Select
+    options={planOptions}
+    value={plan}
+    onChange={setPlan}
+  />
+</FormField>
+```
+
+## Accessibility
+
+- The trigger element uses `role="combobox"` with `aria-expanded` reflecting the open state
+- The option list uses `role="listbox"` with each item using `role="option"` and `aria-selected`
+- Keyboard navigation: `Enter`/`Space` opens the dropdown; arrow keys move between options; `Escape` closes the dropdown; `Tab` moves focus out
+- The selected option has `aria-selected="true"`
+- Disabled options have `aria-disabled="true"` and are skipped during keyboard navigation
+- The trigger's accessible name comes from the connected `<label>` in `FormField` or from `aria-label` when standalone
+
+## Anti-patterns
+
+### Building a select with raw HTML options
+
+```tsx
+// WRONG: No AI contract, no consistent error/disabled handling
+<select value={country} onChange={(e) => setCountry(e.target.value)}>
+  <option value="">Select a country</option>
+  <option value="us">United States</option>
+</select>
+
+// RIGHT: Use the Select component
+<Select
+  options={[{ value: "us", label: "United States" }]}
+  value={country}
+  onChange={setCountry}
+  placeholder="Select a country"
+/>
+```
+
+### Using Select for binary choices
+
+```tsx
+// WRONG: A two-option select is almost always better as a toggle or radio group
+<Select
+  options={[{ value: "yes", label: "Yes" }, { value: "no", label: "No" }]}
+  value={agreed}
+  onChange={setAgreed}
+/>
+
+// RIGHT: Use a Checkbox or ToggleGroup for binary choices
+<Checkbox
+  label="I agree to the terms"
+  checked={agreed}
+  onChange={setAgreed}
+/>
+```
+
+### Controlling expanded state manually
+
+```tsx
+// WRONG: Do not try to force-open the dropdown by passing a prop that does not exist
+<Select options={options} isOpen={true} />
+
+// RIGHT: Select manages its own open state internally. The data-ai-state reflects it.
+// Agents can read data-ai-state="expanded" to know if it is open.
+```
+
+### Select outside FormField without aria-label
+
+```tsx
+// WRONG: No accessible name
+<Select options={statusOptions} value={status} onChange={setStatus} />
+
+// RIGHT: Use inside FormField, or provide aria-label
+<Select
+  options={statusOptions}
+  value={status}
+  onChange={setStatus}
+  aria-label="Account status"
+/>
+```

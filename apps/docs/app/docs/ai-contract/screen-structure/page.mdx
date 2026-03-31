@@ -1,0 +1,293 @@
+# Screen Structure
+
+Every page in a CortexUI application should declare its structural identity through a hierarchy of data-ai-* attributes. This hierarchy allows AI agents to understand where they are, what context they are operating in, and how the content is organized — without any visual inference.
+
+## The Hierarchy
+
+```
+screen (root)
+  └── section (major region)
+        └── entity container (optional, data context)
+              └── form / table / modal (component)
+                    └── field / action (interactive element)
+```
+
+Each level narrows the context. A `screen` says "this is the user-profile page." A `section` says "this is the danger-zone region of that page." An entity container says "the actions and data here apply to user-abc." A form says "these fields submit together."
+
+## data-ai-screen: Declaring the Screen
+
+`data-ai-screen` belongs on the outermost element of the page's content area. It is a kebab-case name that identifies the current view.
+
+```html
+<!-- Root element of the page content -->
+<div data-ai-screen="user-profile">
+  <!-- everything inside is part of the user-profile screen -->
+</div>
+```
+
+Screen names should be stable, descriptive, and consistent with your application's routing vocabulary. If the route is `/users/:id`, the screen is `user-profile`. If the route is `/orders/:id`, the screen is `order-detail`.
+
+### Screen Naming Examples
+
+| Route | Screen Name |
+|---|---|
+| /dashboard | dashboard |
+| /users/:id | user-profile |
+| /orders/:id | order-detail |
+| /settings/billing | settings-billing |
+| /checkout/step-1 | checkout-shipping |
+| /checkout/step-2 | checkout-payment |
+| /products | product-list |
+| /products/:id | product-detail |
+
+## data-ai-section: Declaring Major Regions
+
+`data-ai-section` marks the major logical regions within a screen. Sections help agents understand which actions and data belong together.
+
+Sections should represent meaningful organizational units — not every `<div>` needs a section. Think about how you would describe the page to someone verbally: "there is a profile header, a profile form, an account settings panel, and a danger zone." Those are your sections.
+
+```html
+<div data-ai-screen="user-profile">
+
+  <section data-ai-section="profile-header">
+    <!-- avatar, name, status badge -->
+  </section>
+
+  <section data-ai-section="profile-form">
+    <!-- editable fields -->
+  </section>
+
+  <section data-ai-section="account-settings">
+    <!-- role, permissions, preferences -->
+  </section>
+
+  <section data-ai-section="danger-zone">
+    <!-- delete, suspend, reset -->
+  </section>
+
+</div>
+```
+
+<Callout type="note">
+You do not need to use the HTML5 &lt;section&gt; element. Any block element can carry data-ai-section. Use &lt;section&gt; when it makes semantic sense, but do not force it where a &lt;div&gt; is more appropriate.
+</Callout>
+
+## data-ai-entity and data-ai-entity-id: Declaring Context
+
+When a screen or section operates on a specific record, annotate the container with the entity type and the instance ID.
+
+```html
+<!-- The entire screen is about user user-abc -->
+<div
+  data-ai-screen="user-profile"
+  data-ai-entity="user"
+  data-ai-entity-id="user-abc"
+>
+  ...
+</div>
+
+<!-- A section about a specific order within an order list -->
+<section
+  data-ai-section="recent-orders"
+>
+  <div data-ai-entity="order" data-ai-entity-id="ord-9981">
+    <!-- order details -->
+  </div>
+  <div data-ai-entity="order" data-ai-entity-id="ord-9982">
+    <!-- order details -->
+  </div>
+</section>
+```
+
+Entity context scopes the meaning of actions. A `delete-account` action inside `data-ai-entity-id="user-abc"` means: delete user abc. Without the entity context, the action intent is ambiguous.
+
+## Full Annotated Example: User Profile Page
+
+```html
+<div
+  data-ai-screen="user-profile"
+  data-ai-entity="user"
+  data-ai-entity-id="user-abc"
+>
+
+  <!-- Profile Header Section -->
+  <section data-ai-section="profile-header">
+    <img src="/avatar/user-abc.jpg" alt="Alice Smith" />
+    <h1>Alice Smith</h1>
+    <span
+      data-ai-role="status"
+      data-ai-id="account-status-badge"
+      data-ai-state="success"
+    >
+      Active
+    </span>
+    <button
+      data-ai-role="action"
+      data-ai-id="update-avatar"
+      data-ai-action="update-avatar"
+      data-ai-state="idle"
+    >
+      Update Avatar
+    </button>
+  </section>
+
+  <!-- Profile Form Section -->
+  <section data-ai-section="profile-form">
+    <form
+      data-ai-role="form"
+      data-ai-id="edit-profile-form"
+      onSubmit={handleSubmit}
+    >
+      <input
+        data-ai-role="field"
+        data-ai-id="name-field"
+        data-ai-field-type="text"
+        data-ai-required="true"
+        name="name"
+        defaultValue="Alice Smith"
+      />
+      <input
+        data-ai-role="field"
+        data-ai-id="email-field"
+        data-ai-field-type="email"
+        data-ai-required="true"
+        name="email"
+        defaultValue="alice@example.com"
+      />
+      <input
+        data-ai-role="field"
+        data-ai-id="phone-field"
+        data-ai-field-type="tel"
+        data-ai-required="false"
+        name="phone"
+        defaultValue="+1-555-0100"
+      />
+      <button
+        data-ai-role="action"
+        data-ai-id="save-profile"
+        data-ai-action="save-profile"
+        data-ai-state="idle"
+        type="submit"
+      >
+        Save Profile
+      </button>
+      <button
+        data-ai-role="action"
+        data-ai-id="cancel-edit"
+        data-ai-action="cancel-edit"
+        data-ai-state="idle"
+        type="button"
+        onClick={handleCancel}
+      >
+        Cancel
+      </button>
+    </form>
+  </section>
+
+  <!-- Account Settings Section -->
+  <section data-ai-section="account-settings">
+    <select
+      data-ai-role="field"
+      data-ai-id="role-select"
+      data-ai-field-type="select"
+      data-ai-required="true"
+      name="role"
+    >
+      <option value="admin">Admin</option>
+      <option value="editor">Editor</option>
+      <option value="viewer" selected>Viewer</option>
+    </select>
+    <button
+      data-ai-role="action"
+      data-ai-id="assign-role"
+      data-ai-action="assign-role"
+      data-ai-state="idle"
+    >
+      Assign Role
+    </button>
+  </section>
+
+  <!-- Danger Zone Section -->
+  <section data-ai-section="danger-zone">
+    <button
+      data-ai-role="action"
+      data-ai-id="suspend-account"
+      data-ai-action="suspend-account"
+      data-ai-state="idle"
+    >
+      Suspend Account
+    </button>
+    <button
+      data-ai-role="action"
+      data-ai-id="delete-account"
+      data-ai-action="delete-account"
+      data-ai-state="idle"
+    >
+      Delete Account
+    </button>
+  </section>
+
+</div>
+```
+
+## How getScreenContext() Reads the Structure
+
+The runtime scanner traverses the DOM and collects all structural annotations into a context object:
+
+```js
+const ctx = window.__CORTEX_UI__.getScreenContext();
+
+/*
+{
+  "screen": "user-profile",
+  "entity": "user",
+  "entityId": "user-abc",
+  "sections": ["profile-header", "profile-form", "account-settings", "danger-zone"]
+}
+*/
+```
+
+An agent typically calls `getScreenContext()` as its first step — before any other API call — to verify it is on the expected screen and operating on the expected entity.
+
+```js
+// Agent verifying context before acting
+const ctx = window.__CORTEX_UI__.getScreenContext();
+
+if (ctx.screen !== "user-profile") {
+  throw new Error(`Expected user-profile, but on ${ctx.screen}`);
+}
+if (ctx.entityId !== targetUserId) {
+  throw new Error(`Wrong user: expected ${targetUserId}, got ${ctx.entityId}`);
+}
+
+// Safe to proceed
+const actions = window.__CORTEX_UI__.getAvailableActions();
+```
+
+<Callout type="important">
+Always annotate the entity context (data-ai-entity and data-ai-entity-id) on any page that operates on a specific record. Without entity context, an agent cannot safely determine which record an action will affect. This is especially critical for destructive actions like delete or archive.
+</Callout>
+
+## Comparing Screens
+
+Screen structure makes pages distinguishable. Two screens that look visually similar can be clearly different in the contract:
+
+**User Profile screen:**
+```json
+{ "screen": "user-profile", "entity": "user", "entityId": "user-abc" }
+```
+
+**Order Detail screen:**
+```json
+{ "screen": "order-detail", "entity": "order", "entityId": "ord-9981" }
+```
+
+Both might have a "Save" button. The contract tells the agent exactly which record that Save button will affect.
+
+## Related
+
+- [data-ai-* attributes](/docs/ai-contract/attributes)
+- [Entity modeling](/docs/ai-contract/entity-modeling)
+- [Form schema](/docs/ai-contract/form-schema)
+- [Screen awareness concept](/docs/concepts/screen-awareness)
+- [Best practices](/docs/ai-contract/best-practices)

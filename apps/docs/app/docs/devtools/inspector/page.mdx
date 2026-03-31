@@ -1,0 +1,45 @@
+# Devtools Inspector
+
+## Overview
+
+The CortexUI devtools provide a visual overlay and structured API for inspecting the AI contract on any page.
+
+## Installation
+
+```ts
+import { installCortexUIDevtools } from '@cortexui/runtime';
+
+// In your app's entry point (dev only)
+if (process.env.NODE_ENV === 'development') {
+  installCortexUIDevtools(window);
+}
+```
+
+This installs `window.__CORTEX_UI_DEVTOOLS__`.
+
+## Devtools API
+
+```ts
+window.__CORTEX_UI_DEVTOOLS__ = {
+  // Inspect a specific element's contract
+  inspectElement(el: Element): AIContractReport;
+
+  // Validate the entire page's contract
+  validatePage(): ValidationReport;
+
+  // Get the full contract tree
+  getContractTree(): ContractNode[];
+
+  // Enable visual overlay
+  enableOverlay(): void;
+  disableOverlay(): void;
+}
+```
+
+## Visual Overlay
+
+`enableOverlay()` adds visual badges to all elements with data-ai-* attributes, showing their role and state.
+
+<Callout type="note">
+The AI View toggle in the CortexUI docs uses this same overlay concept. Toggle it with the "AI View" button in the header.
+</Callout>

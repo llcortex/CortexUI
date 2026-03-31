@@ -1,0 +1,67 @@
+# Navigation
+
+Primary navigation component for app-level navigation.
+
+## Overview
+
+Navigation renders the main navigation structure. Each item is a `nav-item` role, with `data-ai-state="selected"` on the active item. AI agents use navigation to understand app structure and traverse between sections.
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| items | `NavItem[]` | required | Array of `{ id, label, href, icon? }` |
+| activeHref | `string` | required | Current active href |
+
+## AI Contract
+
+```html
+<nav data-ai-role="section" data-ai-section="main-navigation">
+  <a
+    data-ai-role="nav-item"
+    data-ai-id="nav-dashboard"
+    data-ai-state="idle"
+    href="/dashboard"
+  >Dashboard</a>
+  <a
+    data-ai-role="nav-item"
+    data-ai-id="nav-users"
+    data-ai-state="selected"
+    href="/users"
+  >Users</a>
+  <a
+    data-ai-role="nav-item"
+    data-ai-id="nav-settings"
+    data-ai-state="idle"
+    href="/settings"
+  >Settings</a>
+</nav>
+```
+
+## Example
+
+```tsx
+<Navigation
+  activeHref="/users"
+  items={[
+    { id: 'nav-dashboard', label: 'Dashboard', href: '/dashboard' },
+    { id: 'nav-users', label: 'Users', href: '/users' },
+    { id: 'nav-settings', label: 'Settings', href: '/settings' }
+  ]}
+/>
+```
+
+<Callout type="tip">
+Use stable, semantic IDs for nav items: `nav-dashboard`, `nav-users`. This lets AI agents navigate reliably without parsing link text.
+</Callout>
+
+## Accessibility
+
+- Wrapped in `<nav aria-label="Main navigation">`
+- Active item has `aria-current="page"`
+- Keyboard navigable
+
+## Related
+
+- [Patterns: Navigation flows](/docs/patterns/navigation)
+- [Screen awareness](/docs/concepts/screen-awareness)

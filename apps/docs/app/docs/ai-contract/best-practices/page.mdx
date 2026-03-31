@@ -1,0 +1,249 @@
+# Best Practices
+
+The AI contract is only as reliable as the discipline applied to maintaining it. A single inconsistent ID, a delayed state update, or an unannotated critical action can silently break AI agent workflows. This page consolidates the rules that keep the contract trustworthy.
+
+## Core Rules
+
+### 1. Use Stable, Semantic IDs
+
+`data-ai-id` values must be stable across renders, sessions, and deployments. They must be semantically meaningful — they should describe what the element *is*, not how it is implemented.
+
+```html
+<!-- Good: stable, semantic -->
+<button data-ai-id="save-profile" ...>Save</button>
+<form data-ai-id="billing-address-form" ...>...</form>
+
+<!-- Bad: unstable or opaque -->
+<button data-ai-id="btn-3" ...>Save</button>
+<button data-ai-id="c7f2a9b0-4d1e-..." ...>Save</button>
+<form data-ai-id="form-1" ...>...</form>
+```
+
+Generated UUIDs and sequential numbers change between renders. An agent that stored `btn-3` as the save action will break the moment the component order changes.
+
+### 2. Keep Action Names Consistent Across the App
+
+If the action is "save-profile" on the profile page, it must be "save-profile" everywhere it appears — including in tests, automation scripts, and API logs. Use a shared constants file:
+
+```ts
+// actions.constants.ts
+export const ACTIONS = {
+  SAVE_PROFILE: "save-profile",
+  DELETE_ACCOUNT: "delete-account",
+  SUBMIT_ORDER: "submit-order",
+  CREATE_USER: "create-user",
+  ASSIGN_ROLE: "assign-role",
+} as const;
+```
+
+```tsx
+<button
+  data-ai-action={ACTIONS.SAVE_PROFILE}
+  data-ai-id={ACTIONS.SAVE_PROFILE}
+  ...
+>
+  Save Profile
+</button>
+```
+
+### 3. Always Update State Synchronously
+
+`data-ai-state` must reflect reality at the exact moment the condition changes — not after a timeout, not after the next render, not after an animation. The transition from `idle` to `loading` happens on the same call stack as the operation that triggers it.
+
+```ts
+// Wrong: state lags behind the operation
+function handleSave() {
+  api.save(data); // operation starts
+  setTimeout(() => setState("loading"), 100); // state updates later
+}
+
+// Correct: state updates synchronously before the await
+async function handleSave() {
+  setState("loading"); // immediate
+  try {
+    await api.save(data);
+    setState("success");
+  } catch {
+    setState("error");
+  }
+}
+```
+
+### 4. Never Hide Critical State in CSS Only
+
+State must live in `data-ai-state`. CSS classes, color changes, and visual animations are invisible to the AI contract. An agent reading a disabled button styled with `opacity: 0.5` and a CSS class of `.disabled` will see `data-ai-state="idle"` and attempt to click it.
+
+```html
+<!-- Wrong: state expressed only in CSS -->
+<button class="btn btn--disabled" style="opacity: 0.5" onClick={...}>
+  Submit
+</button>
+
+<!-- Correct: state expressed in data-ai-state AND CSS -->
+<button
+  data-ai-state="disabled"
+  data-ai-role="action"
+  class="btn btn--disabled"
+  disabled
+  aria-disabled="true"
+>
+  Submit
+</button>
+```
+
+### 5. Section Everything Logically
+
+Every meaningful page region should have a `data-ai-section`. Sections give actions and data spatial context. An agent that knows `delete-account` is in the `danger-zone` section can make safer decisions about when to invoke it.
+
+```html
+<div data-ai-screen="user-profile">
+  <section data-ai-section="profile-header">...</section>
+  <section data-ai-section="profile-form">...</section>
+  <section data-ai-section="account-settings">...</section>
+  <section data-ai-section="danger-zone">...</section>
+</div>
+```
+
+### 6. Always Pair Entity Type with Entity ID
+
+`data-ai-entity` without `data-ai-entity-id` is meaningless. Always provide both:
+
+```html
+<!-- Wrong: type without instance -->
+<div data-ai-entity="order">...</div>
+
+<!-- Correct: type AND instance -->
+<div data-ai-entity="order" data-ai-entity-id="ord-9981">...</div>
+```
+
+### 7. Use Verb-Noun Format for All Action Names
+
+Every `data-ai-action` value must start with a verb. This is enforced by the CortexUI linter and should be reviewed in code review.
+
+```
+save-profile     ✓
+delete-account   ✓
+export-csv       ✓
+profile          ✗  (noun only)
+saved            ✗  (past tense)
+click-save-btn   ✗  (implementation, not intent)
+```
+
+### 8. Test Your Contract
+
+Use the `@cortexui/testing` package to validate the contract programmatically in your test suite:
+
+```ts
+import { validateAIContract } from "@cortexui/testing";
+
+test("user profile page contract is valid", async () => {
+  render(<UserProfilePage userId="user-abc" />);
+  const report = await validateAIContract();
+
+  expect(report.errors).toHaveLength(0);
+  expect(report.warnings).toHaveLength(0);
+});
+```
+
+The validator checks for:
+- Missing `data-ai-role` on annotated elements
+- `data-ai-action` without verb-noun format
+- `data-ai-entity` without `data-ai-entity-id`
+- Actions without `data-ai-state`
+- Forms without `data-ai-id`
+- Fields without `data-ai-field-type` or `data-ai-required`
+
+### 9. Handle Post-Submission State Resets
+
+After an action succeeds or fails, reset to idle when the user dismisses the result or starts a new interaction. A stale `data-ai-state="success"` or `data-ai-result="error"` from a previous run misleads agents.
+
+```tsx
+function SaveButton({ onSave }) {
+  const [state, setState] = useState("idle");
+  const [result, setResult] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (state === "success" || state === "error") {
+      const timer = setTimeout(() => {
+        setState("idle");
+        setResult(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [state]);
+
+  return (
+    <button
+      data-ai-role="action"
+      data-ai-id="save-profile"
+      data-ai-action="save-profile"
+      data-ai-state={state}
+      data-ai-result={result ?? undefined}
+    >
+      Save
+    </button>
+  );
+}
+```
+
+### 10. Annotate Status Elements, Not Just Actions
+
+AI agents need to read page state, not just trigger actions. Status badges, notification banners, and read-only state indicators should all carry `data-ai-role="status"` and `data-ai-state`:
+
+```html
+<span
+  data-ai-role="status"
+  data-ai-id="subscription-status"
+  data-ai-state="error"
+>
+  Payment overdue
+</span>
+```
+
+## 10-Point Review Checklist
+
+Use this checklist when reviewing any component's AI contract before merging:
+
+- [ ] Every annotated element has `data-ai-role`
+- [ ] Every action has `data-ai-id`, `data-ai-action`, and `data-ai-state`
+- [ ] Every `data-ai-action` uses verb-noun kebab-case
+- [ ] Every form has `data-ai-id`
+- [ ] Every field has `data-ai-field-type` and `data-ai-required`
+- [ ] Every page has exactly one `data-ai-screen`
+- [ ] All major regions have `data-ai-section`
+- [ ] Any page operating on a specific record has `data-ai-entity` and `data-ai-entity-id`
+- [ ] State updates synchronously with the underlying operation
+- [ ] No state is expressed only through CSS or visual styling
+
+<Callout type="important">
+Run validateAIContract() in your CI pipeline on every pull request. Contract violations that slip into production can silently break AI agent workflows that users may be relying on.
+</Callout>
+
+## Common Mistakes Table
+
+| Mistake | Impact | Fix |
+|---|---|---|
+| Using UUIDs or sequential numbers as IDs | Agents cannot reliably target elements across sessions | Use stable semantic IDs (save-profile, billing-form) |
+| Inconsistent action names (save-profile vs update-profile) | Agents cannot build reliable action plans | Define action names in a shared constants file |
+| Updating state after a delay | Agents see stale state and make incorrect decisions | Update state synchronously on the same call stack |
+| State only in CSS classes | State is invisible to the contract | Always set data-ai-state alongside CSS |
+| data-ai-entity without data-ai-entity-id | Actions are ambiguous — which record? | Always pair entity type with instance ID |
+| Skipping data-ai-section | No spatial context for actions | Section every major page region |
+| Missing data-ai-role on interactive elements | Elements are invisible to the contract | Every annotated element needs a role |
+| Using role="action" on a div | Agents may fail to trigger the action | Use semantic elements (button) or add keyboard support |
+| Leaving stale data-ai-result after reset | Agents see old outcomes as current | Clear result when returning to idle state |
+| No data-ai-field-type on fields | Agents fill fields with wrong value formats | Set field type for every field |
+| Same data-ai-id on multiple elements | Contract is ambiguous — which element? | IDs must be unique per screen |
+| Not testing the contract | Regressions go undetected | Add validateAIContract() to your test suite and CI |
+
+<Callout type="tip">
+The most common source of AI contract bugs is a component that was fully annotated at build time but whose state attribute stopped updating correctly after a refactor. Treat data-ai-state updates as first-class logic, not an afterthought. Put them in the same function as the state change they describe.
+</Callout>
+
+## Related
+
+- [data-ai-* attributes](/docs/ai-contract/attributes)
+- [Roles reference](/docs/ai-contract/roles)
+- [States reference](/docs/ai-contract/states)
+- [Events reference](/docs/ai-contract/events)
+- [Testing](/docs/testing)

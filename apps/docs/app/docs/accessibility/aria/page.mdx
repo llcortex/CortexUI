@@ -1,0 +1,69 @@
+# ARIA Usage
+
+## Overview
+
+CortexUI components use ARIA attributes correctly out of the box. Understanding the relationship between ARIA and data-ai-* attributes is important: they are **complementary, not redundant**.
+
+- **ARIA** is for assistive technology (screen readers, switch access)
+- **data-ai-*** is for AI agents
+
+Both layers operate simultaneously on every CortexUI component.
+
+## ARIA by Component
+
+### ActionButton
+```html
+<button
+  aria-busy="true"        <!-- loading state -->
+  aria-disabled="false"
+  data-ai-role="action"
+  data-ai-state="loading"
+>
+  <span aria-live="polite">Saving...</span>
+</button>
+```
+
+### Input / FormField
+```html
+<div role="group" aria-labelledby="name-label">
+  <label id="name-label">Full name</label>
+  <input
+    aria-required="true"
+    aria-invalid="false"
+    aria-describedby="name-error"
+    data-ai-role="field"
+    data-ai-field-type="text"
+    data-ai-required="true"
+  />
+  <div id="name-error" aria-live="assertive"></div>
+</div>
+```
+
+### Modal / Dialog
+```html
+<div
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="dialog-title"
+  data-ai-role="modal"
+  data-ai-state="expanded"
+>
+  <h2 id="dialog-title">Confirm deletion</h2>
+  ...
+</div>
+```
+
+### Navigation
+```html
+<nav aria-label="Main navigation">
+  <a aria-current="page" data-ai-role="nav-item" data-ai-state="selected">Users</a>
+</nav>
+```
+
+<Callout type="important">
+Never use data-ai-* instead of ARIA. A button needs both `aria-busy="true"` (for screen readers) AND `data-ai-state="loading"` (for AI agents). These serve different audiences.
+</Callout>
+
+## The Parallel
+
+Screen readers and AI agents face the same fundamental problem: they can't see the visual UI. CortexUI solves it for both simultaneously.

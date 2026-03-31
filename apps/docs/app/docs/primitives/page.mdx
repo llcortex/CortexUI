@@ -1,0 +1,67 @@
+# Primitives
+
+Low-level building blocks that provide behavior and accessibility without AI contract logic.
+
+## Why Primitives Exist
+
+CortexUI has three layers:
+
+```
+┌─────────────────────────────────────────┐
+│           Components (AI Contract)       │
+│  ActionButton, FormField, DataTable...  │
+├─────────────────────────────────────────┤
+│             Primitives                   │
+│  ButtonBase, InputBase, DialogBase...   │
+├─────────────────────────────────────────┤
+│           HTML + ARIA                    │
+│  <button>, <input>, <dialog>...         │
+└─────────────────────────────────────────┘
+```
+
+Primitives handle:
+- Accessible behavior (keyboard, ARIA, focus)
+- Base interactivity (events, disabled state)
+- Polymorphic rendering (the `as` prop)
+
+They do NOT handle:
+- Visual styling (that's component/design token territory)
+- AI contract attributes (that's components territory)
+
+## When to Use Primitives Directly
+
+Use primitives when you're building a custom component that needs to maintain CortexUI's accessibility guarantees but has unique visual requirements.
+
+```tsx
+import { ButtonBase } from '@cortexui/primitives';
+
+// A custom icon button built on ButtonBase
+function IconButton({ icon, label, onClick }: IconButtonProps) {
+  return (
+    <ButtonBase
+      onClick={onClick}
+      aria-label={label}
+      data-ai-role="action"
+      data-ai-action={label.toLowerCase().replace(' ', '-')}
+      data-ai-state="idle"
+    >
+      {icon}
+    </ButtonBase>
+  );
+}
+```
+
+<Callout type="note">
+When building custom components on primitives, you are responsible for adding the correct data-ai-* attributes. Primitives don't add them automatically.
+</Callout>
+
+## Primitives List
+
+| Primitive | Used by | Purpose |
+|---|---|---|
+| [Box](/docs/primitives/box) | All components | Base layout element |
+| [Stack](/docs/primitives/stack) | All components | Flexbox layout |
+| [Text](/docs/primitives/text) | FormField, StatusBanner | Typography |
+| [ButtonBase](/docs/primitives/button-base) | ActionButton | Accessible button |
+| [InputBase](/docs/primitives/input-base) | Input, Select | Accessible input |
+| [DialogBase](/docs/primitives/dialog-base) | Modal, ConfirmDialog | Accessible dialog |

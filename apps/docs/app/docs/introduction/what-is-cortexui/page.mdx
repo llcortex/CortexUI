@@ -1,0 +1,151 @@
+# What is CortexUI
+
+CortexUI is not a component library. It is an **interaction contract** — a design system built on the premise that every user interface must be simultaneously legible to two distinct audiences: the humans who interact with it visually, and the AI agents that operate on it programmatically. Most design systems were built when the only consumer of a UI was a human. CortexUI was built for a world where AI agents, automated pipelines, and runtime inspection tools are first-class clients of your interface.
+
+## Beyond the Component Library
+
+When developers reach for Chakra UI, Material UI, or Radix UI, they are shopping for pre-built components: buttons, inputs, modals, tables. These systems answer the question "what does this look like and how does it behave for a human?" CortexUI answers a second, equally important question: "what does this mean, and how can a machine reliably act on it?"
+
+The difference is not cosmetic. A traditional button renders a clickable element. A CortexUI button renders a clickable element **and** publishes a machine-readable contract describing its identity, its role, the action it performs, and its current state. Every component is a two-sided artifact.
+
+<Callout type="important">
+CortexUI is an interaction contract. Every component ships with a visual layer for humans and a semantic layer for machines. Both layers are first-class citizens — neither is an afterthought.
+</Callout>
+
+## The Dual-Layer Architecture
+
+CortexUI components operate on two parallel layers simultaneously:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     YOUR APPLICATION                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   ┌─────────────────────┐   ┌─────────────────────────┐    │
+│   │   VISUAL LAYER      │   │   SEMANTIC LAYER        │    │
+│   │  (Human-facing)     │   │  (Machine-facing)       │    │
+│   │                     │   │                         │    │
+│   │  • Rendered UI      │   │  • data-ai-id           │    │
+│   │  • CSS styles       │   │  • data-ai-role         │    │
+│   │  • Animations       │   │  • data-ai-action       │    │
+│   │  • Hover states     │   │  • data-ai-state        │    │
+│   │  • Responsive       │   │  • data-ai-screen       │    │
+│   │  • Typography       │   │  • data-ai-section      │    │
+│   │                     │   │  • data-ai-entity       │    │
+│   │                     │   │  • data-ai-entity-id    │    │
+│   └─────────────────────┘   └─────────────────────────┘    │
+│              │                          │                   │
+│              └──────────┬───────────────┘                   │
+│                         ▼                                   │
+│              ┌─────────────────────┐                        │
+│              │  window.__CORTEX_UI__  │                     │
+│              │  Runtime Inspector  │                        │
+│              └─────────────────────┘                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**The visual layer** is what your users see: styled components, responsive layouts, animation states, color schemes. This layer follows conventional design system patterns and can be customized with tokens and themes.
+
+**The semantic layer** is what AI agents, test runners, and automation tools read. It is expressed as `data-ai-*` HTML attributes that persist through re-renders and style changes. Unlike CSS class names or element structure, these attributes are stable contracts — they do not change when you refactor your styles or restructure your DOM.
+
+## The Core Data Attributes
+
+Every CortexUI component that participates in the semantic layer exposes a standard set of `data-ai-*` attributes:
+
+```html
+<button
+  data-ai-id="profile-save-btn"
+  data-ai-role="action"
+  data-ai-action="save-profile"
+  data-ai-state="idle"
+  data-ai-screen="settings"
+  data-ai-section="profile-form"
+  data-ai-entity="user"
+  data-ai-entity-id="usr_01HXYZ"
+>
+  Save Profile
+</button>
+```
+
+Each attribute has a specific, non-overlapping purpose:
+
+| Attribute | Purpose | Example |
+|---|---|---|
+| `data-ai-id` | Stable unique identifier for this element | `"profile-save-btn"` |
+| `data-ai-role` | Semantic role: `action`, `display`, `input`, `navigation` | `"action"` |
+| `data-ai-action` | The logical operation this element triggers | `"save-profile"` |
+| `data-ai-state` | Current machine state: `idle`, `loading`, `error`, `disabled` | `"idle"` |
+| `data-ai-screen` | Which screen or page context this element lives on | `"settings"` |
+| `data-ai-section` | Logical section within the screen | `"profile-form"` |
+| `data-ai-entity` | The domain entity this element relates to | `"user"` |
+| `data-ai-entity-id` | The specific entity instance ID | `"usr_01HXYZ"` |
+
+## How CortexUI Differs from Chakra, MUI, and Radix
+
+Traditional design systems are excellent at what they were designed to do. The distinction is not quality — it is scope:
+
+**Chakra UI** provides a themeable, accessible component library with excellent developer experience. It was designed for humans building UIs for humans. There is no concept of machine-readable action identifiers, entity tracking, or runtime inspection APIs.
+
+**Material UI** provides Google's Material Design in React, with deep theming and a large component surface. Like Chakra, it is a visual system. It adds ARIA attributes for accessibility but stops there.
+
+**Radix UI** provides unstyled, accessible primitives with strong focus on keyboard navigation and ARIA compliance. This comes closest to CortexUI's accessibility-first thinking, but ARIA semantics alone do not provide the action-oriented, entity-tracked, screen-aware contract that AI agents need.
+
+**CortexUI** layers an entirely new semantic contract on top of everything these libraries already do well. Accessibility, visual design, responsive behavior — these are all still present. But CortexUI adds a second contract that is specifically designed for programmatic consumption.
+
+<Callout type="note">
+CortexUI does not compete with accessibility. ARIA attributes and `data-ai-*` attributes serve complementary but different audiences. ARIA speaks to screen readers. `data-ai-*` speaks to AI agents and automation systems. Both are present in every CortexUI component.
+</Callout>
+
+## The Core Promise: Deterministic AI-UI Interaction
+
+The central claim of CortexUI is this: **an AI agent interacting with a CortexUI-powered interface should never have to guess.**
+
+Today, when an AI agent or automation script tries to interact with a web application, it resorts to heuristics: finding elements by text content, by CSS class names, by XPath expressions, by visual position on screen. These approaches are brittle. Text changes. Classes get renamed. Layouts shift. The result is automation that breaks constantly, AI agents that take wrong actions, and test suites that require perpetual maintenance.
+
+CortexUI replaces guesswork with a contract. When an agent needs to submit a form, it does not search for a button with text "Submit" or a class name like `.btn-primary`. It queries for an element with `data-ai-action="submit-order"`. That identifier is a stable part of the interface contract — as stable and intentional as a REST API endpoint path.
+
+```tsx
+// What an AI agent can do with CortexUI:
+const actions = window.__CORTEX_UI__.getAvailableActions();
+// Returns:
+// [
+//   { id: "submit-order", element: <button>, state: "idle", screen: "checkout" },
+//   { id: "apply-coupon", element: <input>, state: "idle", screen: "checkout" },
+//   { id: "navigate-cart", element: <a>, state: "idle", screen: "checkout" }
+// ]
+
+// Agent clicks the right button with zero guesswork:
+window.__CORTEX_UI__.trigger("submit-order");
+```
+
+This is the promise: a stable, queryable, self-describing interface that makes AI-UI interaction as reliable as API calls.
+
+## What This Means in Practice
+
+When you build with CortexUI, you are making an explicit commitment that your interface will be legible to machines as well as humans. This has practical implications:
+
+- **Browser automation** stops relying on fragile CSS selectors
+- **AI copilots** can perform UI operations without being trained on your specific DOM structure
+- **End-to-end tests** become dramatically more stable because they target semantic identifiers, not structural implementation
+- **AI agents** embedded in your product can describe what they see and take reliable actions
+- **Monitoring tools** can observe the state of every interactive element in real time
+
+CortexUI shifts the question from "can a human use this interface?" to "can any intelligent agent — human or machine — use this interface reliably and deterministically?"
+
+## Summary
+
+CortexUI is an AI-native design system that treats UI as an interaction contract. It provides:
+
+1. A complete visual component library (buttons, forms, layouts, data display)
+2. A machine-readable semantic layer expressed through `data-ai-*` HTML attributes
+3. A runtime inspection API (`window.__CORTEX_UI__`) for querying and operating on the interface
+4. Deterministic AI-UI interaction as a first-class design goal
+
+It is built for teams that are shipping products where AI agents, automation, or LLM-powered features need to interact with the interface reliably — and for teams who recognize that this will eventually be true of every product.
+
+## Next Steps
+
+- [Why CortexUI — the problem it solves](/docs/introduction/why-cortexui)
+- [The CortexUI philosophy](/docs/introduction/philosophy)
+- [What AI-native UI means](/docs/introduction/ai-native-ui)
+- [Get started with installation](/docs/getting-started/installation)

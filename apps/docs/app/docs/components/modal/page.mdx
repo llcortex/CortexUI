@@ -1,0 +1,57 @@
+# Modal
+
+A full overlay dialog for complex interactions.
+
+## Overview
+
+Modal displays content in an overlay layer. Unlike ConfirmDialog which is purpose-built for confirmation flows, Modal is general-purpose for complex UIs like forms, image viewers, or detail views.
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| isOpen | `boolean` | required | Controls visibility |
+| onClose | `() => void` | required | Close callback |
+| title | `string` | required | Dialog title |
+| children | `ReactNode` | required | Content |
+| size | `'sm' \| 'md' \| 'lg' \| 'full'` | `'md'` | Dialog size |
+
+## AI Contract
+
+```html
+<div
+  data-ai-role="modal"
+  data-ai-id="create-user-modal"
+  data-ai-state="expanded"
+>
+  <button
+    data-ai-role="action"
+    data-ai-id="close-create-user-modal"
+    data-ai-action="close-modal"
+    data-ai-state="idle"
+    aria-label="Close"
+  >×</button>
+
+  <!-- Modal content: forms, tables, etc. with their own contracts -->
+  <form data-ai-role="form" data-ai-id="create-user-form">
+    ...
+  </form>
+</div>
+```
+
+<Callout type="note">
+Modals can contain any CortexUI components inside. Their nested data-ai-* attributes are fully functional. A form inside a modal exposes its schema via getFormSchema() normally.
+</Callout>
+
+## Accessibility
+
+- `role="dialog"` with `aria-modal="true"` and `aria-labelledby`
+- Focus trapped inside
+- ESC key closes
+- Focus returns to trigger on close
+- Overlay click closes (configurable)
+
+## Related
+
+- [ConfirmDialog](/docs/components/confirm-dialog)
+- [Patterns: Forms](/docs/patterns/forms)

@@ -1,0 +1,320 @@
+# FormField
+
+The container component that wires together a label, an input control, and an error message into a single, semantically coherent unit. FormField does not render an input itself — it provides the structural context and AI contract that wraps any input-like child component.
+
+## Overview
+
+Use FormField whenever you need to associate a label and optional error message with an input. It is the correct compositional wrapper for `Input`, `Select`, and any custom input control that participates in a form.
+
+**Key features:**
+
+- Associates a `<label>` with its input using `htmlFor` automatically
+- Renders inline validation error messages below the input
+- Propagates the `error` state to child inputs via context
+- Exposes `data-ai-role="field"` and related attributes for AI agents to identify form fields
+- Supports required field marking, both visually and semantically
+
+<Callout type="important">
+FormField is the unit of form composition in CortexUI. Always wrap inputs in FormField when they appear in a form context. An unwrapped input has no label association, no error handling, and an incomplete AI contract.
+</Callout>
+
+## Anatomy
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  FormField                                                  │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  <label>                                            │   │
+│  │    "Email Address" (+ required indicator if needed) │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  children (Input, Select, or custom control)        │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  hint text (optional)                               │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  error message (rendered when error prop is set)    │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Parts:
+
+- **Label** — a `<label>` element, always rendered. Connected to the child input via `htmlFor`/`id`
+- **Required indicator** — a visual asterisk and `aria-required` when `required={true}`
+- **Children** — the input control (typically `Input` or `Select`)
+- **Hint** — optional helper text rendered below the input when no error is present
+- **Error message** — rendered below the input when `error` is set, replacing the hint
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `label` | `string` | — **(required)** | The visible label text for this field. Rendered as a `<label>` element. |
+| `name` | `string` | — **(required)** | The field name. Used to connect the label to the child input and to populate `data-ai-field-type`. |
+| `required` | `boolean` | `false` | Marks the field as required. Adds a visual indicator and sets `data-ai-required="true"`. |
+| `error` | `string \| undefined` | `undefined` | The error message to display. When set, the field enters error state and the message is rendered below the input. |
+| `hint` | `string \| undefined` | `undefined` | Helper text shown below the input when there is no error. Disappears when `error` is set. |
+| `children` | `ReactNode` | — **(required)** | The input control to wrap. Typically `<Input>`, `<Select>`, or a custom input primitive. |
+
+## AI Contract
+
+FormField publishes the following `data-ai-*` attributes on the field container:
+
+| Attribute | Value | Purpose |
+|---|---|---|
+| `data-ai-role` | `"field"` | Declares this container as a form field. Agents use this to enumerate all fields in a form. |
+| `data-ai-field-type` | Inferred from child component type | Describes the kind of input: `"text"`, `"email"`, `"select"`, etc. |
+| `data-ai-required` | `"true"` or `"false"` | Explicitly signals whether the field must be filled. Agents can determine which fields to prioritize. |
+
+**Rendered example (idle):**
+
+```html
+<div
+  data-ai-role="field"
+  data-ai-field-type="email"
+  data-ai-required="true"
+>
+  <label for="billing-email">Email Address *</label>
+  <input id="billing-email" type="email" name="email" />
+</div>
+```
+
+**Rendered example (error state):**
+
+```html
+<div
+  data-ai-role="field"
+  data-ai-field-type="email"
+  data-ai-required="true"
+  data-ai-state="error"
+>
+  <label for="billing-email">Email Address *</label>
+  <input id="billing-email" type="email" name="email" aria-invalid="true" />
+  <span role="alert">Please enter a valid email address.</span>
+</div>
+```
+
+## States
+
+### idle
+
+The default state. Label, input, and optional hint are visible. No error message.
+
+```tsx
+<FormField label="Email Address" name="email">
+  <Input type="email" placeholder="you@example.com" />
+</FormField>
+```
+
+### error
+
+An error message is set. The error message is rendered below the input and replaces the hint.
+
+```tsx
+<FormField
+  label="Email Address"
+  name="email"
+  error="Please enter a valid email address."
+>
+  <Input type="email" value={email} onChange={setEmail} />
+</FormField>
+```
+
+### disabled
+
+The child input is disabled. FormField propagates the disabled state visually to the label.
+
+```tsx
+<FormField label="Email Address" name="email">
+  <Input type="email" value={email} disabled />
+</FormField>
+```
+
+## Examples
+
+### Complete registration form
+
+```tsx
+function RegistrationForm() {
+  const [values, setValues] = useState({ name: "", email: "", password: "" });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const newErrors: Record<string, string> = {};
+    if (!values.name) newErrors.name = "Name is required.";
+    if (!values.email.includes("@")) newErrors.email = "Enter a valid email.";
+    if (values.password.length < 8) newErrors.password = "Password must be at least 8 characters.";
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length === 0) {
+      handleRegister(values);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <Stack direction="vertical" gap={4}>
+        <FormField
+          label="Full Name"
+          name="name"
+          required
+          error={errors.name}
+        >
+          <Input
+            type="text"
+            value={values.name}
+            onChange={(v) => setValues({ ...values, name: v })}
+            placeholder="Jane Smith"
+          />
+        </FormField>
+
+        <FormField
+          label="Email Address"
+          name="email"
+          required
+          error={errors.email}
+          hint="We will send a confirmation to this address."
+        >
+          <Input
+            type="email"
+            value={values.email}
+            onChange={(v) => setValues({ ...values, email: v })}
+            placeholder="you@example.com"
+          />
+        </FormField>
+
+        <FormField
+          label="Password"
+          name="password"
+          required
+          error={errors.password}
+          hint="Must be at least 8 characters."
+        >
+          <Input
+            type="password"
+            value={values.password}
+            onChange={(v) => setValues({ ...values, password: v })}
+          />
+        </FormField>
+
+        <ActionButton
+          action="register"
+          state={submitState}
+          label="Create Account"
+        />
+      </Stack>
+    </form>
+  );
+}
+```
+
+### FormField with Select
+
+```tsx
+<FormField
+  label="Country"
+  name="country"
+  required
+  error={errors.country}
+>
+  <Select
+    options={countryOptions}
+    value={country}
+    onChange={setCountry}
+    placeholder="Select a country..."
+  />
+</FormField>
+```
+
+### FormField with hint text
+
+```tsx
+<FormField
+  label="Username"
+  name="username"
+  hint="Lowercase letters, numbers, and hyphens only. 3–20 characters."
+  error={errors.username}
+>
+  <Input
+    type="text"
+    value={username}
+    onChange={setUsername}
+  />
+</FormField>
+```
+
+### Read-only field (display context)
+
+```tsx
+<FormField label="Account ID" name="account-id">
+  <Input
+    type="text"
+    value="acc_01HXYZ9876"
+    disabled
+  />
+</FormField>
+```
+
+## Accessibility
+
+- The `<label>` is always rendered and connected to the child input via `for`/`id`
+- When `error` is set, the error message renders with `role="alert"` so screen readers announce it immediately
+- Required fields have both a visual indicator (asterisk) and `aria-required="true"` on the input element
+- The hint and error are connected to the input via `aria-describedby` for screen reader announcement
+- FormField does not suppress error messages — they are always rendered in the DOM when `error` is set, never hidden with CSS
+
+## Anti-patterns
+
+### Omitting FormField and managing labels manually
+
+```tsx
+// WRONG: Label is disconnected from input, no error state, no AI contract
+<label>Email</label>
+<Input type="email" value={email} onChange={setEmail} />
+{errors.email && <span>{errors.email}</span>}
+
+// RIGHT: FormField handles all of this correctly
+<FormField label="Email" name="email" error={errors.email}>
+  <Input type="email" value={email} onChange={setEmail} />
+</FormField>
+```
+
+### Putting the error message inside the input
+
+```tsx
+// WRONG: Error is rendered inside the input's placeholder — invisible to the AI contract
+<Input
+  type="email"
+  placeholder={errors.email || "you@example.com"}
+/>
+
+// RIGHT: Pass error to FormField
+<FormField label="Email" name="email" error={errors.email}>
+  <Input type="email" placeholder="you@example.com" />
+</FormField>
+```
+
+### Nesting multiple inputs in one FormField
+
+```tsx
+// WRONG: FormField represents a single logical field
+<FormField label="Name" name="name">
+  <Input type="text" placeholder="First" />
+  <Input type="text" placeholder="Last" />
+</FormField>
+
+// RIGHT: One FormField per logical input
+<FormField label="First Name" name="first-name" error={errors.firstName}>
+  <Input type="text" placeholder="Jane" />
+</FormField>
+<FormField label="Last Name" name="last-name" error={errors.lastName}>
+  <Input type="text" placeholder="Smith" />
+</FormField>
+```

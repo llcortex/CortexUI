@@ -1,0 +1,158 @@
+# Runtime Overview
+
+The CortexUI runtime is the bridge between the semantic HTML attributes your components declare and the structured API that AI agents, automated testing tools, and devtools consume. Instead of forcing agents to scrape the DOM and infer intent, the runtime reads your `data-ai-*` annotations and exposes them as a clean, typed JavaScript API under `window.__CORTEX_UI__`.
+
+## What the Runtime Does
+
+When a user loads a CortexUI-annotated page, the runtime scans the live DOM, collects every element with a recognized `data-ai-*` attribute, and assembles a structured context object. That context object is then exposed through five methods on a global `window.__CORTEX_UI__` namespace.
+
+The key insight: the runtime is a **read-only introspection layer**. It does not modify the DOM, does not intercept events, and does not change how your app behaves. It simply makes the implicit structure of your page explicit and machine-readable.
+
+### Architecture
+
+```
+DOM attributes          Runtime scanner         Structured API         AI agent
+──────────────         ───────────────         ──────────────         ────────
+data-ai-screen    →                       →    getScreenContext()  →
+data-ai-action    →    DOM traversal      →    getAvailableActions() →   reads &
+data-ai-form      →    + attribute        →    getFormSchema()      →   acts on
+data-ai-entity    →      parsing          →    getVisibleEntities() →
+data-ai-event     →                       →    getRecentEvents()   →
+```
+
+The scanner runs once on initial mount and then maintains a lightweight MutationObserver to keep the context current as React re-renders components, modals open, and state changes.
+
+## Installation
+
+### With CortexProvider (Recommended)
+
+If you are already using `CortexProvider` from `@cortexui/components`, the runtime is installed automatically. No additional setup is required.
+
+```tsx
+import { CortexProvider } from '@cortexui/components';
+
+export default function App() {
+  return (
+    <CortexProvider>
+      {/* window.__CORTEX_UI__ is now available */}
+      <YourApp />
+    </CortexProvider>
+  );
+}
+```
+
+### Manual Installation
+
+If you are using the runtime without the React component library — for example in a vanilla JS project or a legacy codebase — install it explicitly:
+
+```bash
+npm install @cortexui/runtime
+```
+
+Then call `installCortexUIRuntime` once at application startup:
+
+```ts
+import { installCortexUIRuntime } from '@cortexui/runtime';
+
+installCortexUIRuntime(window);
+
+// window.__CORTEX_UI__ is now available
+```
+
+<Callout type="note">
+`installCortexUIRuntime` is idempotent. Calling it multiple times will not install duplicate listeners or overwrite an existing installation. If `CortexProvider` has already installed the runtime, calling `installCortexUIRuntime` manually is a no-op.
+</Callout>
+
+## The Global API: `window.__CORTEX_UI__`
+
+Once installed, the runtime exposes five methods:
+
+| Method | Returns | Purpose |
+|---|---|---|
+| `getScreenContext()` | `ScreenContext` | Current page, entity, and section layout |
+| `getAvailableActions()` | `Action[]` | All non-disabled, currently visible actions |
+| `getFormSchema(formId)` | `FormSchema` | Complete schema for a specific form |
+| `getVisibleEntities()` | `Entity[]` | All entities currently rendered on screen |
+| `getRecentEvents()` | `AIEvent[]` | Chronological log of recent contract events |
+
+All five methods are **synchronous** and return plain JavaScript objects. They read current DOM state — there is no network request, no async operation, and no side effects.
+
+```ts
+// Available in browser console or agent code
+const ctx = window.__CORTEX_UI__.getScreenContext();
+const actions = window.__CORTEX_UI__.getAvailableActions();
+const form = window.__CORTEX_UI__.getFormSchema('edit-profile-form');
+const entities = window.__CORTEX_UI__.getVisibleEntities();
+const events = window.__CORTEX_UI__.getRecentEvents();
+```
+
+## When to Use the Runtime vs Reading the DOM Directly
+
+You might wonder: why not just use `document.querySelector('[data-ai-action]')` directly? You can — but the runtime provides several advantages:
+
+**Typed, structured output.** The runtime normalizes raw attribute strings into typed objects. Instead of `element.getAttribute('data-ai-state')`, you get `{ state: 'loading' }` with full TypeScript types.
+
+**Aggregation.** Methods like `getAvailableActions()` collect all matching elements across the entire DOM in a single call and filter out disabled or hidden elements automatically.
+
+**Consistency.** The runtime applies the same parsing rules as CortexUI components. Custom attribute formats, nested element handling, and edge cases are handled for you.
+
+**Future-proofing.** If the underlying attribute format ever changes, the runtime abstracts that change away. Agent code that calls `getAvailableActions()` does not need to be updated.
+
+<Callout type="tip">
+Use the runtime API in agent code and tests. Use direct `querySelector` only when writing the runtime itself or debugging low-level attribute issues.
+</Callout>
+
+## Use Cases
+
+### AI Agents
+
+Browser-based AI agents — whether built on Claude, GPT-4o, or any other model — can call `window.__CORTEX_UI__` methods to understand the current UI state without relying on screenshot analysis or fragile CSS selectors. The runtime is the foundation of reliable AI automation on CortexUI-annotated pages.
+
+### Automated Testing
+
+Testing frameworks can use the runtime to assert on semantic state rather than implementation details. Instead of checking that a button has class `btn--loading`, you check that `getAvailableActions()` returns the action with `state: 'loading'`. Your tests survive visual redesigns.
+
+### Devtools
+
+The CortexUI devtools extension uses the runtime to power its AI contract inspector panel. Every panel update is driven by polling the same five methods available to agents.
+
+### Analytics and Observability
+
+`getRecentEvents()` provides a lightweight audit trail of AI-contract interactions. You can forward events to your analytics pipeline to track how agents interact with your application.
+
+## Method Quick Reference
+
+```ts
+// Get the current screen
+window.__CORTEX_UI__.getScreenContext()
+// → { screen: 'user-profile', entity: 'user', entityId: 'user-123', sections: [...] }
+
+// Get all available actions
+window.__CORTEX_UI__.getAvailableActions()
+// → [{ id: 'save-profile', action: 'save-profile', state: 'idle', section: 'profile-form' }]
+
+// Get a form's schema
+window.__CORTEX_UI__.getFormSchema('edit-profile-form')
+// → { formId: 'edit-profile-form', fields: [{ id: '...', fieldType: '...', ... }] }
+
+// Get all visible entities
+window.__CORTEX_UI__.getVisibleEntities()
+// → [{ entity: 'user', entityId: 'user-123', section: 'header' }]
+
+// Get recent events
+window.__CORTEX_UI__.getRecentEvents()
+// → [{ type: 'action_triggered', actionId: 'save-profile', timestamp: 1700000001 }]
+```
+
+<Callout type="important">
+The runtime reads **current DOM state**. If a component has not yet rendered (e.g. a lazy-loaded tab panel), its data will not appear in runtime output. Always ensure the UI has settled before calling runtime methods in agent or test code.
+</Callout>
+
+## Related
+
+- [getScreenContext()](/docs/runtime/get-screen-context) — full reference for screen context
+- [getAvailableActions()](/docs/runtime/get-available-actions) — full reference for actions
+- [getFormSchema()](/docs/runtime/get-form-schema) — full reference for form schemas
+- [getRecentEvents()](/docs/runtime/get-recent-events) — full reference for event logs
+- [Devtools Inspector](/docs/devtools/inspector) — visual runtime exploration
+- [Agent Integration](/docs/advanced/agent-integration) — connecting an AI agent

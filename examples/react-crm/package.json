@@ -1,0 +1,27 @@
+{
+  "name": "@cortexui/example-react-crm",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "lint": "eslint src --ext .ts,.tsx",
+    "preview": "vite preview --port 4011",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@cortexui/components": "workspace:*",
+    "@cortexui/primitives": "workspace:*",
+    "@cortexui/runtime": "workspace:*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.2",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "vite": "^5.4.8"
+  }
+}

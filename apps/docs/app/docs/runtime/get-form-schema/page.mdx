@@ -1,0 +1,102 @@
+# getFormSchema(formId)
+
+Returns the complete schema of a form — all its fields, their types, and current values.
+
+## Signature
+
+```ts
+window.__CORTEX_UI__.getFormSchema(formId: string): FormSchema
+```
+
+## Return Type
+
+```ts
+interface FormSchema {
+  formId: string;
+  fields: FormFieldSchema[];
+}
+
+interface FormFieldSchema {
+  id: string;
+  fieldType: 'text' | 'email' | 'password' | 'number' | 'select' | 'checkbox' | 'textarea';
+  required: boolean;
+  currentValue: string | boolean | null;
+  state: 'idle' | 'error' | 'disabled';
+}
+```
+
+## Example Output
+
+```json
+{
+  "formId": "edit-profile-form",
+  "fields": [
+    {
+      "id": "name-field",
+      "fieldType": "text",
+      "required": true,
+      "currentValue": "Jane Doe",
+      "state": "idle"
+    },
+    {
+      "id": "email-field",
+      "fieldType": "email",
+      "required": true,
+      "currentValue": "jane@example.com",
+      "state": "idle"
+    },
+    {
+      "id": "role-field",
+      "fieldType": "select",
+      "required": false,
+      "currentValue": "admin",
+      "state": "idle"
+    }
+  ]
+}
+```
+
+## Usage in an AI Agent
+
+```js
+// An agent filling out a form
+async function fillEditProfileForm(agentData) {
+  // 1. Get form schema
+  const schema = window.__CORTEX_UI__.getFormSchema('edit-profile-form');
+
+  // 2. Find and fill each field
+  for (const field of schema.fields) {
+    if (field.state === 'disabled') continue;
+    const value = agentData[field.fieldType];
+    if (value !== undefined) {
+      const input = document.querySelector(`[data-ai-id="${field.id}"]`);
+      if (input) {
+        input.value = value;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+  }
+
+  // 3. Find submit action
+  const actions = window.__CORTEX_UI__.getAvailableActions();
+  const submitAction = actions.find(a => a.action === 'save-profile');
+
+  if (submitAction) {
+    const btn = document.querySelector(`[data-ai-id="${submitAction.id}"]`);
+    btn?.click();
+  }
+}
+```
+
+<Callout type="important">
+`getFormSchema` reads `data-ai-id`, `data-ai-field-type`, `data-ai-required`, and the current input value from the DOM. The form element must have `data-ai-role="form"` and `data-ai-id` set.
+</Callout>
+
+## Errors
+
+Returns `null` if no form with the given ID is found on the page.
+
+## Related
+
+- [Form schema contract](/docs/ai-contract/form-schema)
+- [Patterns: Forms](/docs/patterns/forms)

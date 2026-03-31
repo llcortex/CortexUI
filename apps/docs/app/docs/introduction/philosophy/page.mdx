@@ -1,0 +1,302 @@
+# Philosophy
+
+CortexUI is built around a single foundational premise: **UI is an interface contract, not just a visual layer.** Every design decision, every API choice, and every component behavior follows from this premise. When you understand the philosophy, the specific APIs become obvious rather than arbitrary.
+
+This page walks through the six core principles that define how CortexUI thinks about interface design. For each principle, we show what it looks like in code, why it matters, and what the anti-pattern looks like.
+
+<Callout type="important">
+These principles are not guidelines — they are architectural constraints. CortexUI enforces them through its component APIs. Components that violate these principles cannot express themselves correctly through the semantic layer.
+</Callout>
+
+## Principle 1: Dual Layer
+
+**Every component ships two outputs simultaneously: a visual artifact for humans and a semantic artifact for machines.**
+
+The visual layer and the semantic layer are co-equal. Neither is an afterthought. Neither can be disabled without degrading the system. The visual layer is what gets rendered on screen. The semantic layer is what gets embedded in the DOM and consumed by the runtime.
+
+### What it looks like
+
+```tsx
+// CortexUI ActionButton ships both layers:
+<ActionButton
+  aiId="delete-account"
+  action="delete-account"
+  aiState={isLoading ? "loading" : "idle"}
+  variant="destructive"
+>
+  Delete Account
+</ActionButton>
+
+// Rendered HTML includes both layers:
+// Visual layer: className, styles, variant-specific classes
+// Semantic layer: data-ai-id, data-ai-role, data-ai-action, data-ai-state
+```
+
+```html
+<!-- What lands in the DOM -->
+<button
+  class="btn btn-destructive"
+  data-ai-id="delete-account"
+  data-ai-role="action"
+  data-ai-action="delete-account"
+  data-ai-state="idle"
+>
+  Delete Account
+</button>
+```
+
+### The anti-pattern
+
+```tsx
+// Anti-pattern: semantic layer is an afterthought
+// Added only when automation breaks — inconsistent, incomplete
+<button
+  className="btn btn-destructive"
+  data-testid="delete-btn"  // Testing-only, not semantic
+  onClick={handleDelete}
+>
+  Delete Account
+</button>
+```
+
+The `data-testid` approach treats machine legibility as a testing concern rather than an interface concern. It creates a parallel, non-standardized attribute scheme that does not compose with a runtime, does not express state, and communicates nothing about the button's domain meaning.
+
+---
+
+## Principle 2: Determinism
+
+**AI-UI interactions must be deterministic. The same query must always return the same element. The same trigger must always perform the same action.**
+
+Non-determinism in UI interaction comes from relying on element structure, visual position, or text content. CortexUI replaces all of these with stable, explicit identifiers. `data-ai-id` values are assigned by the developer and are treated as stable contracts — changing them is a breaking change, just as renaming an API endpoint is a breaking change.
+
+### What it looks like
+
+```tsx
+// Deterministic: stable action identifier that survives any visual refactor
+<ActionButton
+  aiId="checkout-submit"
+  action="submit-order"
+  aiState={orderState}
+>
+  {isLoading ? "Processing..." : "Place Order"}
+</ActionButton>
+```
+
+```tsx
+// An AI agent targets the action deterministically:
+const action = window.__CORTEX_UI__.getAction("submit-order");
+// Returns the element regardless of what text is currently displayed,
+// what CSS classes are applied, or how the DOM is structured around it.
+```
+
+### The anti-pattern
+
+```tsx
+// Anti-pattern: agent relies on text content
+// Breaks when copy changes, when locale changes, during A/B tests
+document.querySelector("button[type='submit']")
+// or
+Array.from(document.querySelectorAll("button"))
+  .find(btn => btn.textContent.includes("Place Order"));
+```
+
+---
+
+## Principle 3: Explicit State
+
+**Every interactive component must expose its machine state explicitly. State is not implied by visual appearance — it is declared.**
+
+A button that looks disabled might be in a loading state, a permission-denied state, or a temporarily-unavailable state. These are meaningfully different states that require different agent behavior. Relying on visual cues (greyed out, spinner present) forces agents to interpret visual output instead of reading declared state.
+
+### What it looks like
+
+```tsx
+// Explicit state: the component declares its exact machine state
+const [submitState, setSubmitState] = useState<AIState>("idle");
+
+async function handleSubmit() {
+  setSubmitState("loading");
+  try {
+    await api.submitOrder(order);
+    setSubmitState("success");
+  } catch (err) {
+    setSubmitState("error");
+  }
+}
+
+<ActionButton
+  aiId="submit-order-btn"
+  action="submit-order"
+  aiState={submitState}
+  onClick={handleSubmit}
+>
+  Submit Order
+</ActionButton>
+```
+
+```html
+<!-- During submission, the DOM reflects exact state -->
+<button
+  data-ai-id="submit-order-btn"
+  data-ai-role="action"
+  data-ai-action="submit-order"
+  data-ai-state="loading"
+  disabled
+>
+  Submit Order
+</button>
+```
+
+An AI agent watching this element can observe the state transition from `idle` → `loading` → `success` without any visual interpretation. It can wait for `loading` to resolve before proceeding.
+
+### The anti-pattern
+
+```tsx
+// Anti-pattern: state is implied by visual output only
+<button
+  className={isLoading ? "btn btn-loading" : "btn"}
+  disabled={isLoading || hasError}
+  onClick={handleSubmit}
+>
+  {isLoading ? <Spinner /> : "Submit Order"}
+</button>
+// An agent must infer state from: className, disabled attribute, child content
+// None of these are reliable contracts
+```
+
+---
+
+## Principle 4: Stable Identity
+
+**Every interactive element must have a stable, developer-assigned identity that does not change with re-renders, style changes, or DOM restructuring.**
+
+Auto-generated IDs, hash-based identifiers, and positional selectors are all unstable. They couple identity to implementation. CortexUI requires `data-ai-id` to be explicitly set by the developer. This is intentional friction — it forces the developer to make a deliberate decision about the semantic identity of each interactive element.
+
+### What it looks like
+
+```tsx
+// Stable: developer-assigned, semantically meaningful
+<FormField
+  aiId="billing-email-field"
+  aiRole="input"
+  aiSection="billing"
+  aiEntity="order"
+  aiEntityId={orderId}
+  name="email"
+  label="Billing Email"
+/>
+```
+
+The `aiId` value `"billing-email-field"` is:
+- Stable across re-renders
+- Independent of styling
+- Independent of DOM position
+- Semantically meaningful (it describes what the field IS, not how it LOOKS)
+
+### The anti-pattern
+
+```tsx
+// Anti-pattern: ID is implementation-derived or position-based
+<input id={`field-${index}`} name="email" />
+// or
+<input id={generateId()} name="email" />
+// or relying on: document.querySelectorAll("form input")[2]
+```
+
+<Callout type="tip">
+Think of `data-ai-id` the same way you think of REST API paths. `/api/orders/:id` is a stable contract. `fields[2]` is an implementation detail. Your `data-ai-id` values are the `/api/orders/:id` of your UI.
+</Callout>
+
+---
+
+## Principle 5: Action-Oriented
+
+**The interface must describe what it does, not just what it is.**
+
+ARIA describes structure and role: "this is a button," "this is a checkbox." CortexUI describes action and intent: "this triggers `submit-order`," "this triggers `toggle-notification-preference`." The distinction is the difference between a noun and a verb. AI agents need verbs — they need to know what actions are available and what each action does.
+
+### What it looks like
+
+```tsx
+// Action-oriented: every interactive element declares its action
+<ActionButton action="export-report" aiId="export-csv-btn">
+  Export as CSV
+</ActionButton>
+
+<ActionButton action="export-report" aiId="export-pdf-btn">
+  Export as PDF
+</ActionButton>
+```
+
+Notice that two buttons share the same logical `action` (`export-report`) but have different `aiId` values. An agent can discover all `export-report` triggers on the screen, understand they are variants of the same action, and choose the appropriate one.
+
+### The anti-pattern
+
+```tsx
+// Anti-pattern: intent is encoded only in visible text or onClick callback names
+<button onClick={() => handleExport("csv")}>Export as CSV</button>
+<button onClick={() => handleExport("pdf")}>Export as PDF</button>
+// An agent must parse the text content to infer the action.
+// The callback is invisible to the DOM.
+```
+
+---
+
+## Principle 6: Screen Awareness
+
+**Every component must know where it lives. Screen context and section context are first-class properties, not inferred positions.**
+
+An AI agent operating on a complex application may encounter the same component (e.g., a "Save" button) in multiple contexts: a profile page, a settings page, a modal, a form. Without screen and section context, the agent cannot disambiguate. With `data-ai-screen` and `data-ai-section`, the agent can precisely locate elements within the application's logical structure.
+
+### What it looks like
+
+```tsx
+// Screen-aware: every element knows its location in the app's logical structure
+<CortexProvider screen="checkout" section="payment-details">
+  <ActionButton
+    aiId="apply-promo"
+    action="apply-promo-code"
+    aiState="idle"
+  >
+    Apply Code
+  </ActionButton>
+</CortexProvider>
+
+// Rendered with inherited screen context:
+// data-ai-screen="checkout"
+// data-ai-section="payment-details"
+```
+
+```tsx
+// Agent queries by screen context:
+const checkoutActions = window.__CORTEX_UI__.getActionsByScreen("checkout");
+// Returns only actions available on the checkout screen,
+// not actions from a sidebar, modal, or background route.
+```
+
+### The anti-pattern
+
+```tsx
+// Anti-pattern: component has no location awareness
+// An agent must infer context from URL, DOM nesting, or page title
+<button data-ai-id="apply-promo">Apply Code</button>
+// What screen is this on? What section? Is this the right "apply" button?
+// The agent must guess from context.
+```
+
+## The Underlying Insight
+
+These six principles share a common thread: they all move information from the **implicit** (encoded in visuals, structure, or text) to the **explicit** (declared as stable, machine-readable attributes). The visual layer communicates through design. The semantic layer communicates through declarations.
+
+The design principle is: **never make a machine infer what you can declare.**
+
+When state is explicit, agents do not need to interpret spinners. When identity is stable, agents do not need to re-discover elements after re-renders. When actions are named, agents do not need to parse button text. When screen context is declared, agents do not need to infer location from URL structure.
+
+This is the discipline that makes CortexUI an interaction contract rather than just a component library. The contract is the commitment to explicit, stable, machine-readable declarations throughout your interface.
+
+## Next Steps
+
+- [What AI-native UI means](/docs/introduction/ai-native-ui)
+- [CortexUI vs traditional design systems](/docs/introduction/comparison)
+- [Your first CortexUI component](/docs/getting-started/first-component)
+- [Project setup guide](/docs/getting-started/project-setup)

@@ -1,0 +1,270 @@
+# Input
+
+The text input component. Input handles value binding, user events, error state rendering, and the AI contract for text-based data entry fields. It renders a single `<input>` element with the full CortexUI semantic layer.
+
+## Overview
+
+Use Input for any text-based form field: plain text, email, password, number, or URL. It is typically composed inside a `FormField` container, which provides the label and error message wrapper.
+
+**Key features:**
+
+- Supports all standard HTML input types relevant to text data entry
+- Accepts an `error` prop that triggers the error visual state without requiring a wrapping FormField
+- Fully managed or uncontrolled — works with either `value`+`onChange` or standalone
+- Exposes `data-ai-role="field"` and `data-ai-field-type` for AI agent identification
+
+<Callout type="note">
+Input is designed to be composed inside FormField. When used standalone, you are responsible for providing a label association via `aria-label` or a connected `<label>` element. Without a label, the field is not accessible.
+</Callout>
+
+## Anatomy
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Input                                                      │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  [icon slot — optional]  [<input>]                  │   │
+│  │                                                     │   │
+│  │  Visual: border, focus ring, error border           │   │
+│  │  Semantic: data-ai-role, data-ai-field-type         │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Parts:
+
+- **Root container** — positions the input and optional icon
+- **Input element** — the native `<input>` with all semantic attributes
+- **Icon slot** — optional leading or trailing icon (rendered outside the native input)
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `type` | `"text" \| "email" \| "password" \| "number" \| "url"` | `"text"` | The HTML input type. Also determines the `data-ai-field-type` attribute value. |
+| `value` | `string` | `undefined` | Controlled value. Pair with `onChange` for controlled usage. |
+| `onChange` | `(value: string) => void` | `undefined` | Called with the new string value on every keystroke. |
+| `placeholder` | `string` | `undefined` | Placeholder text shown when the input is empty. |
+| `disabled` | `boolean` | `false` | Disables the input. Renders with reduced opacity and prevents interaction. |
+| `error` | `boolean \| string` | `false` | When `true` or a string, applies error border styling. Use `FormField` to render the error message text. |
+| `name` | `string` | `undefined` | The `name` attribute for form submission. |
+| `id` | `string` | `undefined` | The `id` attribute. Used by FormField to connect the `<label>`. |
+| `aria-label` | `string` | `undefined` | Accessible label for standalone usage (without a connected `<label>`). |
+
+## AI Contract
+
+Input publishes the following `data-ai-*` attributes:
+
+| Attribute | Value | Purpose |
+|---|---|---|
+| `data-ai-role` | `"field"` | Marks this element as a data entry field. |
+| `data-ai-field-type` | Matches the `type` prop | Tells agents what kind of data this field accepts: `"text"`, `"email"`, `"password"`, `"number"`, `"url"`. |
+
+**Rendered example:**
+
+```html
+<input
+  type="email"
+  id="user-email"
+  data-ai-role="field"
+  data-ai-field-type="email"
+  placeholder="you@example.com"
+/>
+```
+
+AI agents use `data-ai-field-type` to determine what data to provide. An agent filling a form will route email addresses to `data-ai-field-type="email"` fields and passwords to `data-ai-field-type="password"` fields without needing to parse labels or placeholder text.
+
+## States
+
+### idle
+
+The default state. The input has its normal border and is ready for user input.
+
+```tsx
+<Input
+  type="text"
+  value={value}
+  onChange={setValue}
+  placeholder="Enter your name"
+/>
+```
+
+### error
+
+The input has a red/error border. The `error` prop can be a boolean (show error style only) or a string (the message is typically rendered by FormField above).
+
+```tsx
+<FormField label="Email" name="email" error="Please enter a valid email address.">
+  <Input
+    type="email"
+    value={email}
+    onChange={setEmail}
+    error={!!errors.email}
+  />
+</FormField>
+```
+
+### disabled
+
+The input is non-interactive and visually dimmed.
+
+```tsx
+<Input
+  type="text"
+  value="Read-only value"
+  disabled
+/>
+```
+
+## Examples
+
+### Basic text input
+
+```tsx
+const [name, setName] = useState("");
+
+<FormField label="Full Name" name="full-name" required>
+  <Input
+    type="text"
+    value={name}
+    onChange={setName}
+    placeholder="Jane Smith"
+  />
+</FormField>
+```
+
+### Email input
+
+```tsx
+<FormField label="Email Address" name="email" required error={emailError}>
+  <Input
+    type="email"
+    value={email}
+    onChange={setEmail}
+    placeholder="you@example.com"
+  />
+</FormField>
+```
+
+### Password input
+
+```tsx
+<FormField label="Password" name="password" required error={passwordError} hint="Minimum 8 characters.">
+  <Input
+    type="password"
+    value={password}
+    onChange={setPassword}
+  />
+</FormField>
+```
+
+### Number input
+
+```tsx
+<FormField label="Quantity" name="quantity">
+  <Input
+    type="number"
+    value={String(quantity)}
+    onChange={(v) => setQuantity(Number(v))}
+    placeholder="1"
+  />
+</FormField>
+```
+
+### Input with icon
+
+```tsx
+<FormField label="Search" name="search">
+  <Input
+    type="text"
+    value={query}
+    onChange={setQuery}
+    placeholder="Search users..."
+    icon={<SearchIcon />}
+  />
+</FormField>
+```
+
+### Standalone input (no FormField)
+
+When used outside a form context, always provide an accessible label via `aria-label`:
+
+```tsx
+<Input
+  type="text"
+  value={searchQuery}
+  onChange={setSearchQuery}
+  placeholder="Search..."
+  aria-label="Search all records"
+/>
+```
+
+### Disabled with prefilled value
+
+```tsx
+<FormField label="Account ID" name="account-id">
+  <Input
+    type="text"
+    value="acc_01HXYZ9876"
+    disabled
+    aria-label="Account ID (read-only)"
+  />
+</FormField>
+```
+
+## Accessibility
+
+- Renders as a native `<input>` element — fully keyboard accessible
+- When `error` is truthy, `aria-invalid="true"` is set on the input element
+- The `id` prop connects the input to its label via `htmlFor` when used inside FormField
+- When used standalone, `aria-label` is required to provide an accessible name
+- The `disabled` prop sets both the HTML `disabled` attribute and `aria-disabled="true"`
+- Password inputs always have `type="password"` — never use a text input with masking CSS as a substitute
+
+## Anti-patterns
+
+### Input without a label
+
+```tsx
+// WRONG: No accessible name — screen readers cannot identify this field
+<Input type="email" value={email} onChange={setEmail} />
+
+// RIGHT: Always pair with FormField (or use aria-label)
+<FormField label="Email Address" name="email">
+  <Input type="email" value={email} onChange={setEmail} />
+</FormField>
+```
+
+### Using wrong type for semantic clarity
+
+```tsx
+// WRONG: Collecting an email with type="text" — breaks AI field-type detection
+<Input type="text" value={email} onChange={setEmail} placeholder="your@email.com" />
+
+// RIGHT: Use the semantically correct type
+<Input type="email" value={email} onChange={setEmail} placeholder="your@email.com" />
+```
+
+### Inline error message outside FormField
+
+```tsx
+// WRONG: Error handling bypasses FormField's AI contract and accessibility
+<Input type="email" value={email} onChange={setEmail} />
+{error && <span style={{ color: "red" }}>{error}</span>}
+
+// RIGHT: Use FormField to handle errors
+<FormField label="Email" name="email" error={error}>
+  <Input type="email" value={email} onChange={setEmail} />
+</FormField>
+```
+
+### Using a textarea as Input
+
+```tsx
+// WRONG: TextArea is a different component — do not pass multiline content to Input
+<Input type="text" value={longBio} onChange={setBio} />
+
+// RIGHT: Use the TextArea component for multi-line input
+<TextArea value={longBio} onChange={setBio} rows={4} />
+```

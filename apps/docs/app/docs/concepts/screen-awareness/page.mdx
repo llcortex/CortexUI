@@ -1,0 +1,252 @@
+# Screen Awareness
+
+Screen awareness is the principle that every page in a CortexUI application declares its identity, context, and structure in a machine-readable form. An AI agent should be able to answer "where am I?" and "what is this page about?" by reading the DOM — without parsing URLs, reading page titles, or making visual inferences.
+
+## Every Page Should Declare Its Identity
+
+A screen's identity has three dimensions:
+
+1. **What view is this?** — declared via `data-ai-screen`
+2. **What entity does it operate on?** — declared via `data-ai-entity` and `data-ai-entity-id`
+3. **How is it organized?** — declared via `data-ai-section`
+
+All three are necessary. A screen name alone tells an agent "you are on the user-profile page" — but without entity context, the agent does not know *which* user. Without sections, the agent cannot understand how the page is organized.
+
+## The Structural Attributes
+
+### data-ai-screen
+
+Placed on the outermost element of the page content. It is the canonical name for the current view.
+
+```html
+<div data-ai-screen="user-profile">...</div>
+<div data-ai-screen="order-detail">...</div>
+<div data-ai-screen="checkout-payment">...</div>
+<div data-ai-screen="dashboard">...</div>
+```
+
+Screen names must be:
+- kebab-case
+- Stable across the application's lifetime
+- Unique per view (not shared between screens)
+- Descriptive of the view's purpose, not its URL
+
+### data-ai-entity and data-ai-entity-id
+
+Placed on the same element as `data-ai-screen` when the page operates on a specific record. Together they tell the agent "this page is about this specific record."
+
+```html
+<div
+  data-ai-screen="user-profile"
+  data-ai-entity="user"
+  data-ai-entity-id="user-abc"
+>
+  ...
+</div>
+
+<div
+  data-ai-screen="order-detail"
+  data-ai-entity="order"
+  data-ai-entity-id="ord-9981"
+>
+  ...
+</div>
+```
+
+### data-ai-section
+
+Placed on the major logical regions within the screen. Sections give agents a map of the page.
+
+```html
+<div data-ai-screen="user-profile" data-ai-entity="user" data-ai-entity-id="user-abc">
+  <section data-ai-section="profile-header">...</section>
+  <section data-ai-section="profile-form">...</section>
+  <section data-ai-section="account-settings">...</section>
+  <section data-ai-section="danger-zone">...</section>
+</div>
+```
+
+## The getScreenContext() Runtime API
+
+Agents read screen identity using `getScreenContext()`:
+
+```js
+const ctx = window.__CORTEX_UI__.getScreenContext();
+```
+
+The return value is a structured context object:
+
+```json
+{
+  "screen": "user-profile",
+  "entity": "user",
+  "entityId": "user-abc",
+  "sections": [
+    "profile-header",
+    "profile-form",
+    "account-settings",
+    "danger-zone"
+  ]
+}
+```
+
+For a page with no entity context (like a dashboard):
+
+```json
+{
+  "screen": "dashboard",
+  "entity": null,
+  "entityId": null,
+  "sections": [
+    "metrics-overview",
+    "recent-activity",
+    "quick-actions"
+  ]
+}
+```
+
+<Callout type="important">
+Always call getScreenContext() as the first step in any agent workflow. It is the agent's equivalent of looking at the URL bar and the page title — but more reliable, because it cannot be spoofed by dynamic content or misleading page titles.
+</Callout>
+
+## User Profile vs Order Detail: How They Differ in Context
+
+Two similar-looking pages — a user profile and an order detail — have completely different contexts. Screen awareness makes them distinguishable:
+
+**User Profile:**
+
+```html
+<div
+  data-ai-screen="user-profile"
+  data-ai-entity="user"
+  data-ai-entity-id="user-abc"
+>
+  <section data-ai-section="profile-form">
+    <button data-ai-role="action" data-ai-id="save-profile" data-ai-action="save-profile" data-ai-state="idle">
+      Save Profile
+    </button>
+    <button data-ai-role="action" data-ai-id="delete-account" data-ai-action="delete-account" data-ai-state="idle">
+      Delete Account
+    </button>
+  </section>
+</div>
+```
+
+```json
+// getScreenContext()
+{
+  "screen": "user-profile",
+  "entity": "user",
+  "entityId": "user-abc",
+  "sections": ["profile-header", "profile-form", "danger-zone"]
+}
+```
+
+**Order Detail:**
+
+```html
+<div
+  data-ai-screen="order-detail"
+  data-ai-entity="order"
+  data-ai-entity-id="ord-9981"
+>
+  <section data-ai-section="order-actions">
+    <button data-ai-role="action" data-ai-id="cancel-order" data-ai-action="cancel-order" data-ai-state="idle">
+      Cancel Order
+    </button>
+    <button data-ai-role="action" data-ai-id="reorder" data-ai-action="reorder" data-ai-state="idle">
+      Reorder
+    </button>
+  </section>
+</div>
+```
+
+```json
+// getScreenContext()
+{
+  "screen": "order-detail",
+  "entity": "order",
+  "entityId": "ord-9981",
+  "sections": ["order-header", "order-items", "shipping-details", "order-actions"]
+}
+```
+
+Despite both pages having a "Cancel" button, the entity context makes clear what cancel means on each screen — and agents can validate they are on the right screen before acting.
+
+## Why Screen Awareness Matters for Multi-Page AI Flows
+
+AI agents often need to navigate across multiple screens to complete a workflow. Screen awareness enables safe navigation by giving the agent checkpoints:
+
+```ts
+async function completeCheckoutFlow(orderId: string) {
+  // Step 1: Confirm we're on the cart page
+  let ctx = window.__CORTEX_UI__.getScreenContext();
+  if (ctx.screen !== "cart") {
+    throw new Error(`Expected cart, got ${ctx.screen}`);
+  }
+
+  // Trigger checkout
+  await triggerAction("proceed-to-checkout");
+
+  // Step 2: Wait for navigation to shipping screen
+  await waitForScreen("checkout-shipping");
+
+  // Fill shipping details
+  await fillForm("shipping-form", shippingData);
+  await triggerAction("save-shipping");
+
+  // Step 3: Wait for payment screen
+  await waitForScreen("checkout-payment");
+
+  // Fill payment details
+  await fillForm("payment-form", paymentData);
+  await triggerAction("submit-order");
+
+  // Step 4: Confirm success
+  await waitForScreen("order-confirmation");
+
+  ctx = window.__CORTEX_UI__.getScreenContext();
+  return { success: true, orderId: ctx.entityId };
+}
+```
+
+Each `waitForScreen()` call reads `getScreenContext()` and waits until the screen name matches. This makes multi-step flows resilient to timing variations — the agent does not have to guess when a navigation has completed.
+
+## Navigation Between Screens
+
+Navigation is exposed through `data-ai-role="nav-item"` on navigational links:
+
+```html
+<nav>
+  <a data-ai-role="nav-item" data-ai-id="nav-dashboard" href="/dashboard">Dashboard</a>
+  <a data-ai-role="nav-item" data-ai-id="nav-users" href="/users">Users</a>
+  <a data-ai-role="nav-item" data-ai-id="nav-orders" href="/orders">Orders</a>
+  <a data-ai-role="nav-item" data-ai-id="nav-settings" href="/settings">Settings</a>
+</nav>
+```
+
+Agents read available navigation targets from `getAvailableActions()` filtered by role:
+
+```js
+const allActions = window.__CORTEX_UI__.getAvailableActions();
+const navItems = allActions.filter(a => a.role === "nav-item");
+
+/*
+[
+  { id: "nav-dashboard", href: "/dashboard", label: "Dashboard" },
+  { id: "nav-users", href: "/users", label: "Users" },
+  { id: "nav-orders", href: "/orders", label: "Orders" }
+]
+*/
+```
+
+<Callout type="tip">
+Name screens after their function, not their URL structure. A screen at /users/abc/edit should be "user-profile-edit", not "users-abc-edit". The screen name is a semantic label — it should be intelligible to an agent that has no knowledge of your URL routing convention.
+</Callout>
+
+## Related
+
+- [Screen structure](/docs/ai-contract/screen-structure)
+- [Entity modeling](/docs/ai-contract/entity-modeling)
+- [Runtime API](/docs/runtime)
+- [Interaction contracts](/docs/concepts/interaction-contracts)

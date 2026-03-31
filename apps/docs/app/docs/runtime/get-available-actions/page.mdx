@@ -1,0 +1,203 @@
+# getAvailableActions()
+
+`getAvailableActions()` returns an array of every action that is currently visible on screen and in an actionable state. It is the primary method an AI agent calls to discover what it can do on the current page.
+
+## Signature
+
+```ts
+window.__CORTEX_UI__.getAvailableActions(): Action[]
+```
+
+## Return Type
+
+```ts
+interface Action {
+  /** The element's data-ai-id, used to uniquely address the element. */
+  id: string;
+
+  /** The semantic action name from data-ai-action. */
+  action: string;
+
+  /**
+   * The current state of this action.
+   * 'idle'    — ready to be triggered
+   * 'loading' — request in flight, not re-triggerable
+   * 'success' — completed successfully
+   * 'error'   — last attempt failed
+   */
+  state: 'idle' | 'loading' | 'success' | 'error';
+
+  /**
+   * The section this action belongs to.
+   * Derived from the nearest ancestor with data-ai-section.
+   */
+  section: string | null;
+
+  /** Human-readable label from data-ai-label or the element's text content. */
+  label: string;
+}
+```
+
+## Example Output
+
+```json
+[
+  {
+    "id": "save-profile",
+    "action": "save-profile",
+    "state": "idle",
+    "section": "profile-form",
+    "label": "Save Changes"
+  },
+  {
+    "id": "delete-account",
+    "action": "delete-account",
+    "state": "idle",
+    "section": "danger-zone",
+    "label": "Delete Account"
+  }
+]
+```
+
+## Filtering Behavior
+
+`getAvailableActions()` applies the following filters automatically. You do not need to filter the results yourself:
+
+**Disabled actions are excluded.** Any element with `data-ai-state="disabled"` or the native HTML `disabled` attribute is not included in the output. If you need to check whether a disabled action exists, query the DOM directly.
+
+**Hidden actions are excluded.** Elements that are not visible — either via `display: none`, `visibility: hidden`, or `aria-hidden="true"` — are excluded. This means actions inside closed modal dialogs or collapsed panels do not appear until the UI element is opened.
+
+**Non-action elements are excluded.** Only elements with a `data-ai-action` attribute are collected. Generic annotated elements (e.g. entities, sections) are not included.
+
+<Callout type="important">
+The filter is based on DOM visibility at the moment you call the method. If a modal opens and you call `getAvailableActions()` again, the modal's actions will now appear. Agent code should always re-call this method after a UI state change rather than caching the previous result.
+</Callout>
+
+## Usage Example: Checking if an Action Is Available
+
+```ts
+function isActionAvailable(actionName: string): boolean {
+  const actions = window.__CORTEX_UI__.getAvailableActions();
+  return actions.some(a => a.action === actionName && a.state === 'idle');
+}
+
+// Before trying to save
+if (isActionAvailable('save-profile')) {
+  document.querySelector('[data-ai-id="save-profile"]')?.click();
+} else {
+  console.warn('Save action is not available — may be loading or disabled');
+}
+```
+
+## How AI Agents Use This Method
+
+For an AI agent, `getAvailableActions()` answers the question: **"What can I do right now?"** This is fundamentally different from hardcoding a selector like `document.querySelector('#save-btn')`. The agent does not need prior knowledge of what actions exist on a given screen — it discovers them at runtime.
+
+A typical agent discovery loop looks like this:
+
+```ts
+async function discoverAndAct(targetAction: string) {
+  const actions = window.__CORTEX_UI__.getAvailableActions();
+  const action = actions.find(a => a.action === targetAction);
+
+  if (!action) {
+    throw new Error(
+      `Action "${targetAction}" not found. Available actions: ${
+        actions.map(a => a.action).join(', ')
+      }`
+    );
+  }
+
+  if (action.state !== 'idle') {
+    throw new Error(
+      `Action "${targetAction}" is not idle. Current state: ${action.state}`
+    );
+  }
+
+  // Trigger the action
+  const element = document.querySelector(`[data-ai-id="${action.id}"]`);
+  element?.click();
+}
+```
+
+<Callout type="tip">
+Use `action.section` to disambiguate when the same logical action appears in multiple sections. For example, a page might have a "delete" action in both a detail card and a confirmation sidebar. The `section` field lets you target the right one.
+</Callout>
+
+## Annotating Actions in Components
+
+```tsx
+import { ActionButton } from '@cortexui/components';
+
+function ProfileForm() {
+  const [state, setState] = useState<'idle' | 'loading' | 'success'>('idle');
+
+  return (
+    <section data-ai-section="profile-form">
+      {/* ... form fields ... */}
+      <ActionButton
+        data-ai-id="save-profile"
+        data-ai-action="save-profile"
+        data-ai-state={state}
+        data-ai-label="Save Changes"
+        onClick={handleSave}
+      >
+        Save Changes
+      </ActionButton>
+    </section>
+  );
+}
+```
+
+## Filtering by Section
+
+When a page has many actions, you may want to scope your query to a specific section. The runtime does not provide a filtered variant directly, but filtering by section is trivial:
+
+```ts
+function getActionsInSection(section: string): Action[] {
+  return window.__CORTEX_UI__
+    .getAvailableActions()
+    .filter(a => a.section === section);
+}
+
+const formActions = getActionsInSection('profile-form');
+const dangerActions = getActionsInSection('danger-zone');
+```
+
+## State-Aware Agent Patterns
+
+Different action states require different agent behaviors:
+
+```ts
+const actions = window.__CORTEX_UI__.getAvailableActions();
+const saveAction = actions.find(a => a.action === 'save-profile');
+
+switch (saveAction?.state) {
+  case 'idle':
+    // Safe to trigger
+    triggerAction(saveAction.id);
+    break;
+  case 'loading':
+    // Wait and poll
+    await waitForActionIdle('save-profile');
+    break;
+  case 'success':
+    // Already done — check events for result
+    const events = window.__CORTEX_UI__.getRecentEvents();
+    break;
+  case 'error':
+    // Handle error recovery
+    break;
+  case undefined:
+    // Action not present on this screen
+    throw new Error('save-profile action not found');
+}
+```
+
+## Related
+
+- [Runtime Overview](/docs/runtime/overview) — how the runtime works
+- [getScreenContext()](/docs/runtime/get-screen-context) — current page context
+- [getRecentEvents()](/docs/runtime/get-recent-events) — tracking action outcomes
+- [Confirmation Flows](/docs/patterns/confirmation) — handling confirm/cancel actions
+- [CRUD Patterns](/docs/patterns/crud) — action patterns in list and detail views

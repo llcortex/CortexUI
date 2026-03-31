@@ -1,0 +1,90 @@
+
+# The Five Problems with Current Web UI for AI
+
+Modern web interfaces are engineering achievements by almost every measure. They are responsive, accessible, performant, and beautiful. But "almost every measure" is doing significant work in that sentence. There is one dimension on which current web UI fails systematically and completely: machine operability. This is a technical diagnosis of exactly why.
+
+<Callout type="note">
+This is not a criticism of how web UIs are designed. They were designed for humans, and they are excellent at that job. The failure is the absence of a parallel contract for automated operators — which was never part of the original design goal.
+</Callout>
+
+## Problem 1: No Stable Identity
+
+Every AI agent that operates a web interface needs to be able to reliably target elements across sessions, across deployments, and across updates. Today, none of the available targeting strategies are reliable.
+
+**CSS selectors** are the most common approach used by browser automation tools like Playwright and Selenium. But CSS classes are implementation details. They change when developers refactor, when design systems update, when utility-class libraries are swapped. A selector like `.btn-primary.save-action` breaks the moment a developer renames the class to align with a new design system. This is not a hypothetical: it is the most common cause of broken test suites and broken automations across the industry.
+
+**Text content** is marginally more stable than CSS classes, but it breaks immediately when applications are internationalized. `button:has-text("Save")` becomes `button:has-text("Speichern")` in German, `button:has-text("Guardar")` in Spanish. A/B tests routinely change button labels to test copy variations. The text is a display artifact, not an identity.
+
+**XPath** is brittle in a different way: it encodes the structural position of an element in the DOM. Move the button from one container to another during a redesign and the XPath is invalid. XPath-based selectors are notoriously fragile and are widely considered an automation anti-pattern for anything but the most static UIs.
+
+**The cost:** Every deployment is a potential breakage event. Automation suites require continuous maintenance not because the application's logic changed, but because its appearance changed. Teams spend engineering time maintaining selectors rather than extending functionality. Agent reliability degrades continuously.
+
+CortexUI's solution: `data-ai-id` provides a stable, semantic, developer-assigned identity that survives refactors, redesigns, and i18n. It is the element's contract name, not its visual label.
+
+## Problem 2: State Is Inferred, Not Declared
+
+Interactive elements have states. A button can be idle, loading, disabled, or in an error condition. A form field can be empty, filled, invalid, or focused. These states matter enormously to an agent: trying to click a disabled button, or submitting a form with invalid fields, produces wrong behavior.
+
+The problem is that current web UIs express state visually and inconsistently. A disabled button might have the CSS class `disabled`. It might have `opacity: 0.5` applied inline. It might have `pointer-events: none`. It might use the HTML `disabled` attribute. It might use `aria-disabled="true"`. It might simply look gray because of a design decision unrelated to its interactivity. Different component libraries make different choices. The same application may handle disabled state differently in different components.
+
+An AI agent operating such an interface must guess. It applies heuristics: if the color is muted, probably disabled. If `pointer-events` is none, probably disabled. If `aria-disabled` is set, probably disabled. These heuristics work most of the time. When they fail, the agent attempts to interact with an unavailable element, receives an unexpected response, and either retries (potentially causing side effects) or fails silently.
+
+**The cost:** Agents miss disabled states and trigger wrong actions. An agent might attempt to submit a form before all required fields are filled because it could not detect the submit button's disabled state. It might retry a loading action because it could not distinguish `state="loading"` from `state="idle"`.
+
+<Callout type="warning">
+The most dangerous failure mode is not the agent crashing — it is the agent succeeding at the wrong thing. Submitting a partially-filled form, clicking a disabled action that somehow accepts the click, retrying an already-in-progress operation: these produce real errors with real consequences.
+</Callout>
+
+CortexUI's solution: `data-ai-state` declares the element's current state explicitly and consistently: `idle`, `loading`, `disabled`, `error`, `success`. No inference required.
+
+## Problem 3: Actions Are Implied, Not Explicit
+
+A button exists in a DOM. It has a label. It has a click handler. But nothing in the DOM says what that click handler will do. The action — the semantic meaning of clicking this element — lives in the designer's head, the product specification, the developer's implementation. It is not expressed in the interface.
+
+This is fine for humans because humans combine visual context, label reading, and prior experience to infer action meaning. "Save" in a profile form means save the profile. "Save" in a document editor might mean save the document or save a version. The surrounding context makes this obvious to a human who has spent time with the application.
+
+An agent has no prior experience. It sees a button with the text "Save" and must guess, from context, what object will be saved, what operation will be performed, and whether this is the right action for the task at hand. In complex applications with multiple save actions on the same page, this guessing becomes unreliable.
+
+**The cost:** Agents misidentify actions and click the wrong thing. In an e-commerce checkout with buttons for "Save for Later," "Save Address," and "Save & Continue," an agent attempting to complete checkout might interact with the wrong save action, producing unexpected results ranging from harmless (item saved to wishlist) to consequential (address overwritten, checkout state lost).
+
+CortexUI's solution: `data-ai-action` names the action explicitly: `complete-checkout`, `save-shipping-address`, `save-for-later`. No inference required.
+
+## Problem 4: Context Is Visual, Not Semantic
+
+A web page represents something. A profile page is about a user. A product page is about a product. An invoice page is about an invoice. This entity context is obvious to a human reading the page — the title says it, the content shows it, the URL implies it.
+
+For an agent, entity context is not obvious. The page title might name the entity. The URL might contain an ID. The breadcrumb might show the navigation path. But none of these are structured data: they are visual artifacts that require interpretation. An agent that needs to know "which user is this profile for?" must parse text, extract a name, and hope there's only one user in scope.
+
+This problem compounds in applications where a single page contains multiple entities: a team management page showing a list of users, each with their own set of actions. Which user does the "Remove" button next to a row refer to? To a human, the visual layout makes it obvious. To an agent, the association between button and entity is implicit in the DOM structure and must be inferred from proximity, which is fragile.
+
+**The cost:** Agents confuse context and apply actions to the wrong entities. An agent tasked with "remove the inactive user" might click a remove button associated with the wrong user if it cannot reliably determine which entity each button belongs to.
+
+CortexUI's solution: `data-ai-entity` and `data-ai-entity-id` on page sections and tables declare what entity is in scope. Sections declare their boundaries. The runtime exposes structured entity context through `getScreenContext()`.
+
+## Problem 5: Outcomes Are Observed, Not Contracted
+
+After an agent takes an action, it needs to know whether that action succeeded. This seems straightforward, but in current web UIs it is not. Success and failure are expressed visually and inconsistently.
+
+After clicking Save, success might mean: a toast notification appeared. The page title updated. A "Saved" badge appeared next to the button. The form became non-editable. The URL changed. The page reloaded. Any of these might be true, none might be universally true, and the agent must scrape the DOM looking for signals of the outcome it expects.
+
+Failure is even harder to detect. An error might produce a red border on a field. Or a modal dialog. Or a toast notification. Or the form might simply reset. Or nothing might visually change because the error was handled silently. The agent sees no change and may not know whether the action is still in progress, completed successfully, or failed.
+
+**The cost:** Agents cannot reliably detect outcomes, leading to retry loops and double-submissions. An agent that cannot confirm a form submission succeeded will retry — potentially submitting the same order twice, triggering the same payment twice, creating duplicate records. The consequences range from user annoyance to financial error.
+
+CortexUI's solution: The `action_completed` event in the runtime event log provides a structured outcome: `{ type: 'action_completed', actionId: 'save-profile', result: 'success' | 'error', message?: string }`. No DOM scraping required.
+
+## Summary
+
+| Problem | Current State | Impact | CortexUI Solution |
+|---------|--------------|--------|-------------------|
+| No stable identity | CSS classes, text, XPath all break | Automation breaks on every deployment | `data-ai-id` stable semantic identifier |
+| State is inferred | Visual properties vary by component | Agents miss disabled states, trigger wrong actions | `data-ai-state` explicit state declaration |
+| Actions are implied | Labels in designer's head, not DOM | Agents misidentify actions, click wrong thing | `data-ai-action` named action contract |
+| Context is visual | Entity relationships implicit in layout | Agents confuse context, affect wrong entities | `data-ai-entity` + `data-ai-entity-id` scoping |
+| Outcomes are observed | Success/failure expressed visually | Retry loops, double-submissions | `action_completed` event with structured result |
+
+<Callout type="important">
+These five problems do not require AI to fix them. They require web developers and designers to adopt a richer contract for the interfaces they build. CortexUI provides that contract — as a set of HTML attributes, a component library, and a runtime that makes the contract queryable and observable.
+</Callout>
+
+Each of these problems is solvable without any changes to how the UI looks or how humans interact with it. The solutions are additive: structured attributes alongside the visual design, not instead of it. The interface gains a second layer — readable by machines — while remaining exactly what it is for humans.

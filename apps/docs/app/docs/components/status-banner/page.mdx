@@ -1,0 +1,111 @@
+# StatusBanner
+
+A feedback/notification banner that communicates system state to both humans and AI agents.
+
+## Overview
+
+StatusBanner is used to communicate the result of an operation — success, failure, warning, or informational message. It uses `data-ai-role="status"` to mark itself as a status indicator, and `data-ai-state` to signal its condition.
+
+Use it after form submissions, API operations, or to communicate system conditions.
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| type | `'success' \| 'error' \| 'warning' \| 'info'` | required | Banner type |
+| title | `string` | — | Optional bold title |
+| message | `string` | required | Message content |
+| dismissible | `boolean` | `false` | Show dismiss button |
+| onDismiss | `() => void` | — | Dismiss callback |
+
+## AI Contract
+
+```html
+<div
+  data-ai-role="status"
+  data-ai-id="save-result-banner"
+  data-ai-state="success"
+>
+  Profile saved successfully.
+</div>
+```
+
+- `data-ai-role="status"` — marks as a status/feedback element
+- `data-ai-state` — mirrors the type: success, error, warning, info
+- `data-ai-id` — stable ID so AI can find and read this banner
+
+## States
+
+**Success**
+```tsx
+<StatusBanner type="success" message="Profile saved successfully." />
+```
+
+**Error**
+```tsx
+<StatusBanner type="error" title="Save failed" message="Please check your connection and try again." />
+```
+
+**Warning**
+```tsx
+<StatusBanner type="warning" message="Your session expires in 5 minutes." />
+```
+
+**Info**
+```tsx
+<StatusBanner type="info" message="We are performing scheduled maintenance on Sunday." />
+```
+
+## Examples
+
+### After form submission
+
+```tsx
+const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+const handleSubmit = async () => {
+  try {
+    await saveProfile(data);
+    setStatus('success');
+  } catch {
+    setStatus('error');
+  }
+};
+
+return (
+  <>
+    <form onSubmit={handleSubmit}>...</form>
+    {status === 'success' && (
+      <StatusBanner type="success" message="Profile updated." dismissible onDismiss={() => setStatus('idle')} />
+    )}
+    {status === 'error' && (
+      <StatusBanner type="error" message="Failed to save. Please try again." />
+    )}
+  </>
+);
+```
+
+<Callout type="tip">
+Always assign a stable `data-ai-id` to status banners so AI agents can locate and read the outcome. Name them after the operation: `save-result`, `submit-result`, `delete-result`.
+</Callout>
+
+## Accessibility
+
+- Uses `role="alert"` for error/warning types (announced by screen readers immediately)
+- Uses `role="status"` for success/info (polite announcement)
+- Dismiss button has `aria-label="Dismiss notification"`
+
+## Anti-patterns
+
+```tsx
+// ❌ Don't use color alone to communicate state
+<div style={{ color: 'red' }}>Something went wrong</div>
+
+// ✅ Use StatusBanner with explicit type
+<StatusBanner type="error" message="Something went wrong." />
+```
+
+## Related
+
+- [ActionButton states](/docs/components/action-button)
+- [Events reference](/docs/ai-contract/events)

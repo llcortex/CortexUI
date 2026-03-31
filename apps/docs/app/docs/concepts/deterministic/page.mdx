@@ -1,0 +1,248 @@
+# Deterministic Interfaces
+
+In computer science, a deterministic system is one where a given input always produces the same output. No randomness. No ambiguity. Given the same starting conditions, the same operation produces the same result every time.
+
+Most web UI is not deterministic in this sense. Not because it is buggy, but because it was never designed with machine legibility in mind. The result is interfaces that are perfectly usable for humans but profoundly unreliable for AI agents, automation systems, and test runners.
+
+CortexUI is designed to be deterministic. This page explains what that means, why it matters, and how it is achieved.
+
+## What "Deterministic" Means in UI Context
+
+A deterministic interface satisfies three conditions when an AI agent or automation tool interacts with it:
+
+1. **Stable identity** — Every interactive element can be uniquely and consistently identified, independent of its visual position, text content, or CSS class names
+2. **Explicit state** — Every element's current state is declared openly, not inferred from appearance or behavior
+3. **Predictable actions** — Every available action is named and discoverable; triggering an action produces a consistent, observable outcome
+
+When all three conditions are met, an agent interacting with the UI behaves like a well-written HTTP client interacting with a REST API: it knows what it can call, it knows what state things are in, and it can observe whether its actions succeeded or failed.
+
+## Why Current Web UI Is Non-Deterministic
+
+Current web interfaces are non-deterministic from a machine's perspective for three structural reasons:
+
+**Non-determinism 1: Visual layout as identity**
+Most elements are identified by their visual position, text content, or CSS class names. A "Save" button is found by looking for a `<button>` element containing the text "Save". But text changes with localization, A/B tests, and copywriting updates. CSS class names change with refactors. Visual positions change with responsive layouts. None of these are stable identifiers.
+
+**Non-determinism 2: Dynamic selectors**
+Frameworks like React generate class names dynamically (`css-1a2b3c`). Testing frameworks like Cypress and Playwright encourage selecting by `data-testid`, but these are per-project conventions, not universal standards. Two components that look identical may have completely different selector strategies.
+
+**Non-determinism 3: Implicit state**
+A disabled button might have the class `btn--disabled`, or `opacity-50`, or `pointer-events-none`, or simply not render at all. A loading state might be indicated by a spinner inside the button, a change in button text, or a grayed-out overlay. An error state might be a red border, an error message below the field, or a toast notification in the corner. None of these states are declared explicitly — they are inferred from visual appearance.
+
+<Callout type="warning">
+Implicit state is one of the leading causes of AI agent failures. An agent that cannot reliably determine whether an operation succeeded or failed cannot make reliable decisions about what to do next.
+</Callout>
+
+## The 3 Requirements for Determinism
+
+### Requirement 1: Stable Identity
+
+Every interactive element must have a stable, unique identifier that does not change when the UI is restyled, translated, or refactored. In CortexUI, this is `data-ai-id`:
+
+```html
+<!-- Non-deterministic: identifier depends on text and structure -->
+<button class="btn btn-primary">Save Profile</button>
+
+<!-- Deterministic: identifier is explicit and stable -->
+<button
+  data-ai-id="profile-save-btn"
+  data-ai-role="action"
+  data-ai-action="save-profile"
+  class="btn btn-primary"
+>
+  Save Profile
+</button>
+```
+
+The `data-ai-id` value `"profile-save-btn"` is treated as a stable part of the interface contract. It does not change when the button text changes to "Update Profile" or when the CSS classes are refactored. Any agent that has learned to find `data-ai-action="save-profile"` will continue to find it reliably.
+
+### Requirement 2: Explicit State
+
+Every element's current state must be declared as a data attribute, not inferred from CSS or visual appearance:
+
+```html
+<!-- Non-deterministic: state inferred from CSS class -->
+<button class="btn btn-primary opacity-50 cursor-not-allowed">
+  Processing...
+</button>
+
+<!-- Deterministic: state explicitly declared -->
+<button
+  data-ai-id="profile-save-btn"
+  data-ai-role="action"
+  data-ai-action="save-profile"
+  data-ai-state="loading"
+  class="btn btn-primary opacity-50 cursor-not-allowed"
+>
+  Processing...
+</button>
+```
+
+An agent querying the element with `data-ai-state="loading"` gets an unambiguous signal: this action is in progress. No need to check for spinners, opacity values, or class name patterns.
+
+### Requirement 3: Predictable Actions
+
+Every available action must be discoverable by name, and triggering it must produce a consistent, observable result:
+
+```javascript
+// Non-deterministic: agent has to search for a button that might submit the form
+const submitBtn = document.querySelector('button[type="submit"]');
+
+// Deterministic: agent queries by action name
+const actions = window.__CORTEX_UI__.getAvailableActions({ screen: "checkout" });
+// Returns all actions explicitly declared on the checkout screen
+
+window.__CORTEX_UI__.trigger("submit-checkout");
+// Fires the action; state transitions to "loading", then "success" or "error"
+```
+
+## How CortexUI Achieves Determinism
+
+CortexUI achieves determinism through a combination of:
+
+1. **Mandatory `data-ai-id`** on all interactive elements — stable identifiers that are part of the component's contract, not generated dynamically
+2. **`data-ai-state` synchronization** — every state change in the application is reflected immediately as a `data-ai-state` attribute update on the relevant element
+3. **`data-ai-action` naming** — every action has a semantic name in verb-noun format that is stable across visual changes
+4. **Runtime API** — `window.__CORTEX_UI__` provides a programmatic interface for discovering and querying all declared elements
+
+## A State Machine Diagram
+
+The state transitions for a typical action element are explicit and finite:
+
+```
+                    ┌─────────────────┐
+                    │                 │
+              ┌────►│      IDLE       │◄────┐
+              │     │  data-ai-state  │     │
+              │     │  = "idle"       │     │
+              │     └────────┬────────┘     │
+              │              │              │
+              │         User/Agent          │
+              │         Triggers            │
+              │              │              │
+              │     ┌────────▼────────┐     │
+              │     │                 │     │
+              │     │    LOADING      │     │
+              │     │  data-ai-state  │     │
+              │     │  = "loading"    │     │
+              │     └───────┬─────────┘     │
+              │             │               │
+              │    ┌────────┴────────┐      │
+              │    │                 │      │
+              │    ▼                 ▼      │
+       ┌──────┴────────┐    ┌────────┴──────┤
+       │               │    │               │
+       │    SUCCESS    │    │     ERROR     │
+       │  data-ai-state│    │  data-ai-state│
+       │  = "success"  │    │  = "error"   │
+       │               │    │               │
+       └───────────────┘    └───────────────┘
+               │                    │
+               │    Auto-reset      │
+               └────────┬───────────┘
+                        │
+                        └──► back to IDLE
+```
+
+Every node in this diagram is an explicit state declared on the element. There are no hidden states. There are no states communicated only through CSS. An agent observing the element always knows exactly where it is in this machine.
+
+## Real-World Example: A Login Flow
+
+Consider a login form. Here is the same flow implemented deterministically and non-deterministically.
+
+**Non-deterministic login flow:**
+```html
+<!-- Initial state -->
+<button class="btn btn-primary">Sign In</button>
+
+<!-- Loading state — agent must detect spinner to know it's loading -->
+<button class="btn btn-primary btn--disabled" disabled>
+  <span class="spinner" /> Signing in...
+</button>
+
+<!-- Error state — agent must parse DOM or look for red elements -->
+<p class="text-red-500 text-sm">Invalid email or password</p>
+<button class="btn btn-primary">Sign In</button>
+```
+
+**Deterministic login flow:**
+```html
+<!-- Initial state -->
+<button
+  data-ai-id="login-submit-btn"
+  data-ai-role="action"
+  data-ai-action="submit-login"
+  data-ai-state="idle"
+  class="btn btn-primary"
+>
+  Sign In
+</button>
+
+<!-- Loading state -->
+<button
+  data-ai-id="login-submit-btn"
+  data-ai-role="action"
+  data-ai-action="submit-login"
+  data-ai-state="loading"
+  class="btn btn-primary btn--disabled"
+  disabled
+>
+  <span class="spinner" /> Signing in...
+</button>
+
+<!-- Error state -->
+<button
+  data-ai-id="login-submit-btn"
+  data-ai-role="action"
+  data-ai-action="submit-login"
+  data-ai-state="error"
+  data-ai-result="error:invalid-credentials"
+  class="btn btn-primary"
+>
+  Sign In
+</button>
+```
+
+An agent monitoring `data-ai-id="login-submit-btn"` can watch the `data-ai-state` attribute and know exactly what is happening without parsing DOM structure or checking visual properties. The state machine is explicit and observable.
+
+<Callout type="tip">
+Use `data-ai-result` on action elements to communicate the outcome of the last operation. This gives agents a direct signal that the operation completed successfully or failed, along with a machine-readable reason code.
+</Callout>
+
+## Testing Implications
+
+Deterministic interfaces produce dramatically more stable test suites:
+
+```javascript
+// Fragile test — breaks when text or class changes
+cy.contains('button', 'Sign In').click();
+cy.get('.text-red-500').should('be.visible');
+
+// Deterministic test — stable regardless of visual changes
+cy.get('[data-ai-action="submit-login"]').click();
+cy.get('[data-ai-action="submit-login"]')
+  .should('have.attr', 'data-ai-state', 'error');
+```
+
+Tests written against semantic contracts survive:
+- Copy changes ("Sign In" → "Log In" → "Continue")
+- Style refactors (class names change, CSS framework changes)
+- Layout changes (button moves, form restructures)
+- Localization (English → French → Japanese)
+
+The semantic contract — `data-ai-action="submit-login"` — does not change with any of these. Tests that target it remain valid as long as the action itself exists.
+
+## Summary
+
+- A deterministic interface is one where AI agents can interact with consistent, predictable results
+- Current web UI is non-deterministic because it relies on visual position, text content, and implicit state
+- CortexUI's three requirements for determinism: stable identity, explicit state, predictable actions
+- State transitions are declared as explicit attribute updates, not inferred from visual appearance
+- The result is test suites that survive refactors and AI agents that interact reliably
+
+## Related
+
+- [State visibility — making state explicit](/docs/concepts/state-visibility)
+- [Action-driven design](/docs/concepts/action-driven)
+- [States reference](/docs/ai-contract/states)
+- [Testing with CortexUI](/docs/getting-started/first-component)

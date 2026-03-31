@@ -1,0 +1,165 @@
+# AI Contract — Overview
+
+The AI contract is the machine-readable interface layer that makes CortexUI components deterministically operable by AI agents.
+
+## What It Is
+
+Traditional UI is designed for human eyes. CortexUI adds a parallel layer — a structured set of attributes, roles, states, and events that AI agents can read without DOM scraping or visual inference.
+
+```
+Component
+  ↓
+data-ai-* attributes (on DOM elements)
+  ↓
+Runtime scanner (window.__CORTEX_UI__)
+  ↓
+Structured API
+  ↓
+AI agent
+```
+
+The contract has four pillars:
+
+- **Attributes** — data-ai-* on every meaningful element
+- **Roles** — semantic type of each element (action, field, form, table, etc.)
+- **States** — current condition of each element (idle, loading, error, etc.)
+- **Events** — observable outcomes (action_triggered, action_completed, etc.)
+
+## Quick Reference
+
+| Attribute | Purpose | Required |
+|---|---|---|
+| data-ai-id | Stable unique identifier | On actions and forms |
+| data-ai-role | Semantic role | Always |
+| data-ai-action | Executable intent name | On actions |
+| data-ai-state | Current state | On stateful elements |
+| data-ai-screen | Screen name | On root element |
+| data-ai-section | Section name | On major regions |
+| data-ai-entity | Entity type | On entity containers |
+| data-ai-entity-id | Entity instance ID | On entity containers |
+| data-ai-field-type | Field data type | On fields |
+| data-ai-required | Whether field is required | On fields |
+| data-ai-result | Last action outcome | On actions post-completion |
+
+## Example: A Fully Annotated Page
+
+```html
+<div data-ai-screen="user-profile" data-ai-entity="user" data-ai-entity-id="user-123">
+  <section data-ai-section="profile-form">
+    <form data-ai-role="form" data-ai-id="edit-profile-form">
+      <input
+        data-ai-role="field"
+        data-ai-id="name-field"
+        data-ai-field-type="text"
+        data-ai-required="true"
+        name="name"
+      />
+      <button
+        data-ai-role="action"
+        data-ai-id="save-profile"
+        data-ai-action="save-profile"
+        data-ai-state="idle"
+      >
+        Save Profile
+      </button>
+    </form>
+  </section>
+</div>
+```
+
+<Callout type="important">
+The AI contract does not replace accessibility attributes. Both coexist — ARIA for assistive technology, data-ai-* for AI agents. They are complementary layers.
+</Callout>
+
+## How AI Agents Use the Contract
+
+An agent operating on a CortexUI app doesn't scrape the DOM. It uses the runtime API:
+
+```js
+// 1. Where am I?
+const ctx = window.__CORTEX_UI__.getScreenContext();
+// { screen: "user-profile", entity: "user", entityId: "user-123" }
+
+// 2. What can I do?
+const actions = window.__CORTEX_UI__.getAvailableActions();
+// [{ id: "save-profile", action: "save-profile", state: "idle" }]
+
+// 3. What forms exist?
+const schema = window.__CORTEX_UI__.getFormSchema("edit-profile-form");
+// { formId: "edit-profile-form", fields: [...] }
+
+// 4. What happened?
+const events = window.__CORTEX_UI__.getRecentEvents();
+// [{ type: "action_completed", actionId: "save-profile", result: "success" }]
+```
+
+## Why This Matters
+
+Without an explicit contract, AI agents must resort to fragile heuristics: reading button text, inferring intent from CSS class names, or relying on screenshots. These approaches break the moment the visual design changes.
+
+The AI contract is stable by design. A `data-ai-action="save-profile"` attribute remains meaningful regardless of whether the button is red or blue, whether it says "Save" or "Update", or whether it moves to a different part of the layout. The contract decouples machine-readable semantics from visual presentation.
+
+This makes AI-driven automation:
+
+- **Deterministic** — the same attribute always means the same thing
+- **Resilient** — immune to visual redesigns
+- **Testable** — contracts can be validated without rendering
+- **Composable** — agents can chain actions across screens
+
+## The Contract Is Declarative
+
+You don't write code to expose the contract. You annotate your existing HTML with data-ai-* attributes. The CortexUI runtime scanner picks these up automatically and exposes them through `window.__CORTEX_UI__`.
+
+This means adding AI contract support to an existing CortexUI app is an annotation task, not a refactor.
+
+```tsx
+// Before: opaque to AI
+<button onClick={handleSave} className="btn btn-primary">
+  Save Profile
+</button>
+
+// After: AI-readable
+<button
+  onClick={handleSave}
+  className="btn btn-primary"
+  data-ai-role="action"
+  data-ai-id="save-profile"
+  data-ai-action="save-profile"
+  data-ai-state="idle"
+>
+  Save Profile
+</button>
+```
+
+<Callout type="note">
+CortexUI components annotate themselves when you pass the correct props. You only need to write raw data-ai-* attributes if you're building custom components outside the design system.
+</Callout>
+
+## Contract Layers at a Glance
+
+### Layer 1: Identity
+
+Every meaningful element has a stable `data-ai-id`. This ID is kebab-case, human-readable, and consistent across sessions. It is the primary key AI agents use to target elements.
+
+### Layer 2: Role
+
+Every meaningful element has a `data-ai-role` that classifies it semantically. Is it an action? A field? A form? A status indicator? Role is the noun.
+
+### Layer 3: State
+
+Stateful elements — buttons, inputs, modals — carry `data-ai-state`. State is always the current truth. It updates synchronously as the underlying operation changes.
+
+### Layer 4: Events
+
+Every significant interaction emits an event. Events carry a type, a timestamp, and a payload. The runtime keeps a short rolling log of recent events that agents can query.
+
+## Next Steps
+
+- [data-ai-* attributes](/docs/ai-contract/attributes)
+- [Roles reference](/docs/ai-contract/roles)
+- [States reference](/docs/ai-contract/states)
+- [Events reference](/docs/ai-contract/events)
+- [Screen structure](/docs/ai-contract/screen-structure)
+- [Form schema](/docs/ai-contract/form-schema)
+- [Entity modeling](/docs/ai-contract/entity-modeling)
+- [Best practices](/docs/ai-contract/best-practices)

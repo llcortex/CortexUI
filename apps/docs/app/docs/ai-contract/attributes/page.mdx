@@ -1,0 +1,413 @@
+# data-ai-* Attributes
+
+The `data-ai-*` attributes are the foundation of the AI contract. They are standard HTML data attributes that annotate DOM elements with machine-readable semantics. Every AI-operable element in a CortexUI application carries one or more of these attributes.
+
+## Quick Reference
+
+| Attribute | Required | Applies To | Value Format |
+|---|---|---|---|
+| data-ai-id | Yes (actions, forms) | Any meaningful element | kebab-case string |
+| data-ai-role | Always | Every annotated element | See roles |
+| data-ai-action | Yes (on actions) | Elements with role="action" | verb-noun kebab-case |
+| data-ai-state | On stateful elements | Actions, fields, modals | See states |
+| data-ai-screen | Yes (once per page) | Root page element | kebab-case string |
+| data-ai-section | Yes (major regions) | Section containers | kebab-case string |
+| data-ai-entity | On entity containers | Wrappers of entity data | Entity type name |
+| data-ai-entity-id | With data-ai-entity | Same element | String or numeric ID |
+| data-ai-field-type | On fields | Elements with role="field" | text, email, number, etc. |
+| data-ai-required | On fields | Elements with role="field" | "true" or "false" |
+| data-ai-result | Post-completion | Elements with role="action" | success, error, string |
+
+<Callout type="important">
+All data-ai-* values must be static strings. Never set them to dynamic JavaScript expressions that produce unpredictable output. The contract must be stable — the same attribute value should identify the same semantic element across sessions.
+</Callout>
+
+## Naming Conventions
+
+Before covering each attribute individually, two naming rules apply across the entire contract:
+
+**Rule 1: Use kebab-case everywhere.**
+All `data-ai-id`, `data-ai-screen`, `data-ai-section`, `data-ai-action`, and `data-ai-entity` values must be kebab-case. No camelCase, no snake_case, no PascalCase.
+
+```
+save-profile       ✓
+saveProfile        ✗
+save_profile       ✗
+SaveProfile        ✗
+```
+
+**Rule 2: Action names use verb-noun format.**
+The `data-ai-action` value should read as an intent: what does triggering this element do? Start with a verb.
+
+```
+save-profile       ✓
+delete-account     ✓
+submit-order       ✓
+create-user        ✓
+profile            ✗  (no verb)
+btn-save           ✗  (not semantic)
+do-the-thing       ✗  (too vague)
+```
+
+## data-ai-id
+
+### Purpose
+
+`data-ai-id` is the stable unique identifier for a meaningful element. It is the primary key AI agents use to reference, target, and track elements across interactions.
+
+### Valid Values
+
+Any kebab-case string that is unique within the current screen. It should be human-readable and semantically meaningful.
+
+```html
+<!-- Good: describes what the element IS -->
+<button data-ai-id="save-profile" ...>Save</button>
+<form data-ai-id="billing-address-form" ...>...</form>
+<input data-ai-id="email-field" ...>
+
+<!-- Bad: non-descriptive or unstable -->
+<button data-ai-id="btn-1" ...>Save</button>
+<button data-ai-id="a3f9b2c1-..." ...>Save</button>
+```
+
+### Required On
+
+Actions (`data-ai-role="action"`) and forms (`data-ai-role="form"`). Optional but recommended on fields.
+
+### Anti-pattern
+
+Using generated UUIDs or auto-incremented numbers as IDs. These are unstable — they change between renders or sessions — and break any AI agent that recorded a previous action by ID.
+
+## data-ai-role
+
+### Purpose
+
+`data-ai-role` classifies the semantic type of an element. It tells the AI agent what category of UI element it is dealing with.
+
+### Valid Values
+
+`action`, `field`, `form`, `table`, `modal`, `nav-item`, `status`, `screen`, `section`
+
+```html
+<button data-ai-role="action" ...>Submit</button>
+<input data-ai-role="field" ...>
+<form data-ai-role="form" ...>...</form>
+<table data-ai-role="table" ...>...</table>
+<div data-ai-role="modal" ...>...</div>
+<a data-ai-role="nav-item" ...>Dashboard</a>
+<span data-ai-role="status" ...>Active</span>
+```
+
+### Required On
+
+Every annotated element. An element without `data-ai-role` is invisible to the AI contract.
+
+### Anti-pattern
+
+Putting `data-ai-role="action"` on a `<div>` that has no keyboard event handler. Roles carry interaction expectations — agents will attempt to interact with actions. A `<div>` without `onClick` and `onKeyDown` will fail.
+
+## data-ai-action
+
+### Purpose
+
+`data-ai-action` names the executable intent of an action element. It is the verb that an AI agent calls when it wants to trigger this element. Unlike `data-ai-id` (which identifies the element), `data-ai-action` describes what triggering it does.
+
+### Valid Values
+
+Verb-noun kebab-case strings. Should match the domain vocabulary of your application.
+
+```html
+<button
+  data-ai-role="action"
+  data-ai-id="save-profile"
+  data-ai-action="save-profile"
+>
+  Save Profile
+</button>
+
+<button
+  data-ai-role="action"
+  data-ai-id="delete-account-btn"
+  data-ai-action="delete-account"
+>
+  Delete Account
+</button>
+```
+
+### Required On
+
+All elements with `data-ai-role="action"`.
+
+### Anti-pattern
+
+Making `data-ai-action` and `data-ai-id` always identical. They can be the same, but they serve different purposes. `data-ai-id` identifies the DOM element; `data-ai-action` names the intent. In some cases, multiple elements might trigger the same logical action (e.g., a button and a keyboard shortcut both triggering `save-profile`), and they would share `data-ai-action` but have different `data-ai-id` values.
+
+## data-ai-state
+
+### Purpose
+
+`data-ai-state` reflects the current runtime condition of a stateful element. It is the live truth about what an element is doing or has done.
+
+### Valid Values
+
+`idle`, `loading`, `success`, `error`, `disabled`, `expanded`, `selected`
+
+```html
+<!-- Idle: ready for interaction -->
+<button data-ai-state="idle" ...>Save</button>
+
+<!-- Loading: operation in progress -->
+<button data-ai-state="loading" ...>Saving...</button>
+
+<!-- Success: operation completed successfully -->
+<button data-ai-state="success" ...>Saved!</button>
+
+<!-- Error: operation failed -->
+<button data-ai-state="error" ...>Failed — retry</button>
+
+<!-- Disabled: not currently interactable -->
+<button data-ai-state="disabled" disabled ...>Save</button>
+```
+
+### Required On
+
+All elements with `data-ai-role="action"`. Recommended on fields and modals.
+
+### Anti-pattern
+
+Updating state asynchronously after a delay. State must be updated synchronously at the same moment the underlying condition changes. If a network request fires, `loading` goes on the button at the exact moment the request is initiated — not after a `setTimeout`.
+
+## data-ai-screen
+
+### Purpose
+
+`data-ai-screen` declares the identity of the current page or view. It is placed on the root element of the page content and tells agents where they are.
+
+### Valid Values
+
+A kebab-case string that uniquely names the screen in your application.
+
+```html
+<div data-ai-screen="user-profile">
+  <!-- entire page content -->
+</div>
+
+<div data-ai-screen="order-detail">
+  <!-- entire page content -->
+</div>
+
+<div data-ai-screen="checkout-step-2">
+  <!-- entire page content -->
+</div>
+```
+
+### Required On
+
+One element per page — the outermost container of the page content.
+
+### Anti-pattern
+
+Placing `data-ai-screen` on multiple elements or deep inside the DOM. It should be the first ancestor that represents the page's identity.
+
+## data-ai-section
+
+### Purpose
+
+`data-ai-section` names a major logical region of a page. Sections allow agents to understand spatial and organizational structure — which actions, fields, and data belong together.
+
+### Valid Values
+
+A kebab-case string that describes the region's purpose.
+
+```html
+<section data-ai-section="profile-info">
+  <!-- name, email, avatar -->
+</section>
+
+<section data-ai-section="billing-details">
+  <!-- payment method, billing address -->
+</section>
+
+<section data-ai-section="danger-zone">
+  <!-- delete account, reset password -->
+</section>
+```
+
+### Required On
+
+All major logical regions of a page. A page should have at least one section.
+
+### Anti-pattern
+
+Using `data-ai-section` on every small UI component. Sections represent major organizational regions — sidebars, forms, data panels — not individual cards or list items.
+
+## data-ai-entity and data-ai-entity-id
+
+### Purpose
+
+These two attributes work together to declare that a container holds data about a specific entity instance. `data-ai-entity` names the entity type; `data-ai-entity-id` identifies the specific record.
+
+### Valid Values
+
+`data-ai-entity`: A singular noun naming the domain entity (user, order, product, invoice, ticket).
+`data-ai-entity-id`: The actual ID of the record, as a string.
+
+```html
+<div
+  data-ai-screen="user-profile"
+  data-ai-entity="user"
+  data-ai-entity-id="user-abc123"
+>
+  ...
+</div>
+
+<!-- Nested entities -->
+<div data-ai-entity="order" data-ai-entity-id="ord-9981">
+  <div data-ai-entity="order-item" data-ai-entity-id="item-001">...</div>
+  <div data-ai-entity="order-item" data-ai-entity-id="item-002">...</div>
+</div>
+```
+
+### Required On
+
+The root element of any view that represents or operates on a specific entity instance.
+
+### Anti-pattern
+
+Using `data-ai-entity` without `data-ai-entity-id`. An entity type without an instance ID is ambiguous — the agent cannot know which record actions apply to.
+
+## data-ai-field-type
+
+### Purpose
+
+`data-ai-field-type` specifies the data type of a form field. It allows AI agents to understand what kind of value a field expects before attempting to fill it.
+
+### Valid Values
+
+`text`, `email`, `password`, `number`, `tel`, `url`, `date`, `datetime`, `time`, `select`, `multiselect`, `checkbox`, `radio`, `textarea`, `file`
+
+```html
+<input
+  data-ai-role="field"
+  data-ai-id="email-field"
+  data-ai-field-type="email"
+  type="email"
+  name="email"
+/>
+
+<textarea
+  data-ai-role="field"
+  data-ai-id="bio-field"
+  data-ai-field-type="textarea"
+  name="bio"
+></textarea>
+
+<select
+  data-ai-role="field"
+  data-ai-id="country-select"
+  data-ai-field-type="select"
+  name="country"
+>
+  ...
+</select>
+```
+
+### Required On
+
+All elements with `data-ai-role="field"`.
+
+### Anti-pattern
+
+Setting `data-ai-field-type="text"` for all fields to avoid thinking about it. An AI agent filling an email field as plain text will produce invalid values. Type annotations exist so the agent can apply appropriate format constraints.
+
+## data-ai-required
+
+### Purpose
+
+`data-ai-required` marks whether a field must be filled before the form can be submitted.
+
+### Valid Values
+
+`"true"` or `"false"` (always as strings).
+
+```html
+<input
+  data-ai-role="field"
+  data-ai-id="name-field"
+  data-ai-field-type="text"
+  data-ai-required="true"
+  required
+  name="name"
+/>
+
+<input
+  data-ai-role="field"
+  data-ai-id="phone-field"
+  data-ai-field-type="tel"
+  data-ai-required="false"
+  name="phone"
+/>
+```
+
+### Required On
+
+All elements with `data-ai-role="field"`.
+
+### Anti-pattern
+
+Relying on the HTML `required` attribute alone. The AI contract reads `data-ai-required` specifically. Always set both.
+
+## data-ai-result
+
+### Purpose
+
+`data-ai-result` records the outcome of the most recent invocation of an action. It is set after the action resolves — either successfully or with an error.
+
+### Valid Values
+
+`success`, `error`, or a custom string describing the outcome (e.g., `"validation-failed"`, `"network-timeout"`).
+
+```html
+<!-- After a successful save -->
+<button
+  data-ai-role="action"
+  data-ai-id="save-profile"
+  data-ai-action="save-profile"
+  data-ai-state="success"
+  data-ai-result="success"
+>
+  Saved!
+</button>
+
+<!-- After a failed save -->
+<button
+  data-ai-role="action"
+  data-ai-id="save-profile"
+  data-ai-action="save-profile"
+  data-ai-state="error"
+  data-ai-result="validation-failed"
+>
+  Failed
+</button>
+```
+
+### Required On
+
+Set dynamically after any action resolves. Should not be present before the first invocation.
+
+### Anti-pattern
+
+Leaving a stale `data-ai-result` from a previous run when the action is reset to `idle`. Clear `data-ai-result` (or remove the attribute) when the action returns to its idle state.
+
+<Callout type="tip">
+Use data-ai-result for fine-grained failure reasons beyond just "error". Values like "validation-failed", "insufficient-permissions", or "duplicate-entry" give AI agents enough information to decide what to do next without requiring them to parse error message text.
+</Callout>
+
+## Related
+
+- [Roles reference](/docs/ai-contract/roles)
+- [States reference](/docs/ai-contract/states)
+- [Events reference](/docs/ai-contract/events)
+- [Screen structure](/docs/ai-contract/screen-structure)
+- [Form schema](/docs/ai-contract/form-schema)
+- [Best practices](/docs/ai-contract/best-practices)

@@ -1,0 +1,50 @@
+# ButtonBase
+
+A raw accessible button with no visual styling.
+
+## Purpose
+
+ButtonBase handles everything behavioral about a button:
+- Click and keyboard events (Enter, Space)
+- Disabled state with aria-disabled
+- Focus management
+- ARIA role (implicit from `<button>`)
+
+It does NOT add visual styles or data-ai-* attributes. That's done by components built on top of it.
+
+## Usage
+
+```tsx
+import { ButtonBase } from '@cortexui/primitives';
+
+// Building a custom AI-native button
+function SaveButton({ onClick, state }) {
+  return (
+    <ButtonBase
+      onClick={onClick}
+      disabled={state === 'disabled'}
+      data-ai-role="action"
+      data-ai-id="save-profile"
+      data-ai-action="save-profile"
+      data-ai-state={state}
+      className="px-4 py-2 bg-blue-600 text-white rounded"
+    >
+      {state === 'loading' ? 'Saving...' : 'Save'}
+    </ButtonBase>
+  );
+}
+```
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| onClick | `() => void` | — | Click handler |
+| disabled | `boolean` | `false` | Disable button |
+| type | `'button' \| 'submit' \| 'reset'` | `'button'` | Button type |
+| children | `ReactNode` | required | Content |
+| ...rest | any | — | Any HTML button attribute |
+
+<Callout type="tip">
+When building custom buttons on ButtonBase, always add the full data-ai-* contract manually: role, id, action, and state.
+</Callout>

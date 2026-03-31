@@ -1,0 +1,88 @@
+# getRecentEvents()
+
+Returns a chronological log of recent AI-contract events emitted on the current page.
+
+## Signature
+
+```ts
+window.__CORTEX_UI__.getRecentEvents(): RuntimeEventLogEntry[]
+```
+
+## Return Type
+
+```ts
+interface RuntimeEventLogEntry {
+  type: 'action_triggered' | 'action_completed' | 'action_failed' | 'form_submitted' | 'field_updated';
+  actionId?: string;
+  formId?: string;
+  fieldId?: string;
+  result?: 'success' | 'error';
+  message?: string;
+  timestamp: number; // Unix timestamp ms
+}
+```
+
+## Example Output
+
+```json
+[
+  {
+    "type": "action_triggered",
+    "actionId": "save-profile",
+    "timestamp": 1700000001000
+  },
+  {
+    "type": "action_completed",
+    "actionId": "save-profile",
+    "result": "success",
+    "timestamp": 1700000003200
+  }
+]
+```
+
+## Usage: Verifying an action succeeded
+
+```js
+// After triggering save-profile, verify it succeeded
+function waitForActionResult(actionId, timeoutMs = 10000) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    const check = setInterval(() => {
+      const events = window.__CORTEX_UI__.getRecentEvents();
+      const completed = events.find(
+        e => e.actionId === actionId && e.type === 'action_completed'
+      );
+      const failed = events.find(
+        e => e.actionId === actionId && e.type === 'action_failed'
+      );
+      if (completed) { clearInterval(check); resolve(completed); }
+      if (failed) { clearInterval(check); reject(failed); }
+      if (Date.now() - start > timeoutMs) { clearInterval(check); reject(new Error('Timeout')); }
+    }, 200);
+  });
+}
+
+// Use it
+await document.querySelector('[data-ai-id="save-profile"]').click();
+const result = await waitForActionResult('save-profile');
+console.log(result.result); // "success"
+```
+
+<Callout type="tip">
+The event log is the most reliable way for AI agents to verify that an action completed. Don't assume success — always check the event log.
+</Callout>
+
+## Event Types Reference
+
+| Event | When | Key fields |
+|---|---|---|
+| action_triggered | When user/agent initiates action | actionId |
+| action_completed | When action resolves successfully | actionId, result: 'success' |
+| action_failed | When action resolves with error | actionId, result: 'error', message |
+| form_submitted | When form submit fires | formId |
+| field_updated | When field value changes | fieldId |
+
+## Related
+
+- [Events contract](/docs/ai-contract/events)
+- [Runtime overview](/docs/runtime/overview)

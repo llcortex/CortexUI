@@ -1,0 +1,198 @@
+# Action-Driven Design
+
+Action-driven design is a UI methodology where interfaces are organized around what they allow you to *do*, rather than how they look. It is the conceptual foundation of CortexUI's AI contract.
+
+## Traditional Design vs. Action-Driven Design
+
+In traditional UI design, a screen is organized around its visual layout. A designer asks: "Where should the form go? What color is the button? What typography hierarchy do we use?" The deliverable is a visual composition.
+
+In action-driven design, a screen is organized around its operational vocabulary. A designer asks: "What can the user do here? What operations does this screen expose? What is the consequence of each?" The deliverable is an action catalog — a list of every intent the screen supports.
+
+| Traditional | Action-Driven |
+|---|---|
+| Organized around layout | Organized around operations |
+| Primary question: "How does this look?" | Primary question: "What can you do here?" |
+| State lives in CSS classes | State lives in data-ai-state |
+| Intent is inferred from visuals | Intent is declared in data-ai-action |
+| AI must scrape and infer | AI reads the contract directly |
+
+The visual design still matters — but it is the presentation layer on top of an explicit operational model.
+
+## The Action Vocabulary
+
+Every screen in an action-driven application has a catalog of actions. Before implementing any UI, enumerate all the things the user should be able to do on that screen.
+
+For a CRM user profile page, the action vocabulary might be:
+
+```
+Screen: user-profile
+Entity: user / user-{id}
+
+Actions:
+  update-avatar         → Replace the user's profile image
+  save-profile          → Persist edits to name, email, phone
+  cancel-edit           → Discard unsaved form changes
+  assign-role           → Change the user's permission role
+  resend-invitation     → Re-send the email invitation
+  suspend-account       → Temporarily disable the account
+  reactivate-account    → Re-enable a suspended account
+  export-audit-log      → Download activity log as CSV
+  delete-account        → Permanently remove the account
+```
+
+This catalog becomes the contract. Everything in the UI is in service of enabling these actions — and every action must be annotated in the DOM.
+
+## Naming Convention: Verb-Noun
+
+Action names follow a strict verb-noun convention in kebab-case. This is not stylistic preference — it is a contract requirement. The verb tells agents what kind of operation this is; the noun tells them what it operates on.
+
+```
+save-profile         verb: save    noun: profile
+delete-account       verb: delete  noun: account
+assign-role          verb: assign  noun: role
+export-audit-log     verb: export  noun: audit-log
+resend-invitation    verb: resend  noun: invitation
+```
+
+Consistent verb vocabulary matters too. Choose a standard set of verbs for your domain and stick to them across the entire application:
+
+| Verb | Meaning |
+|---|---|
+| save | Persist edits to an existing record |
+| create | Add a new record |
+| delete | Permanently remove a record |
+| archive | Soft-remove a record |
+| submit | Finalize a transactional form |
+| update | Modify a specific property |
+| export | Generate a downloadable file |
+| import | Upload external data |
+| assign | Link one entity to another |
+| revoke | Remove a link or permission |
+
+<Callout type="important">
+Action names are part of your public API surface if you expose AI-operable interfaces. Changing "save-profile" to "update-profile" in a future release is a breaking change for any agent or automation that references the old name. Treat action names with the same stability contract as REST endpoint paths.
+</Callout>
+
+## Mapping a CRM Page's Actions
+
+Here is how to map actions for a full CRM user profile page, from vocabulary to annotated HTML:
+
+**Step 1: List the actions**
+
+```
+update-avatar, save-profile, cancel-edit, assign-role,
+resend-invitation, suspend-account, delete-account
+```
+
+**Step 2: Group by section**
+
+```
+profile-header:   update-avatar
+profile-form:     save-profile, cancel-edit
+account-settings: assign-role
+account-actions:  resend-invitation, suspend-account
+danger-zone:      delete-account
+```
+
+**Step 3: Annotate the DOM**
+
+```html
+<div data-ai-screen="user-profile" data-ai-entity="user" data-ai-entity-id="user-abc">
+
+  <section data-ai-section="profile-header">
+    <button data-ai-role="action" data-ai-id="update-avatar" data-ai-action="update-avatar" data-ai-state="idle">
+      Update Avatar
+    </button>
+  </section>
+
+  <section data-ai-section="profile-form">
+    <form data-ai-role="form" data-ai-id="edit-profile-form">
+      <!-- fields -->
+      <button data-ai-role="action" data-ai-id="save-profile" data-ai-action="save-profile" data-ai-state="idle" type="submit">
+        Save Profile
+      </button>
+      <button data-ai-role="action" data-ai-id="cancel-edit" data-ai-action="cancel-edit" data-ai-state="idle" type="button">
+        Cancel
+      </button>
+    </form>
+  </section>
+
+  <section data-ai-section="account-settings">
+    <button data-ai-role="action" data-ai-id="assign-role" data-ai-action="assign-role" data-ai-state="idle">
+      Assign Role
+    </button>
+  </section>
+
+  <section data-ai-section="account-actions">
+    <button data-ai-role="action" data-ai-id="resend-invitation" data-ai-action="resend-invitation" data-ai-state="idle">
+      Resend Invitation
+    </button>
+    <button data-ai-role="action" data-ai-id="suspend-account" data-ai-action="suspend-account" data-ai-state="idle">
+      Suspend Account
+    </button>
+  </section>
+
+  <section data-ai-section="danger-zone">
+    <button data-ai-role="action" data-ai-id="delete-account" data-ai-action="delete-account" data-ai-state="idle">
+      Delete Account
+    </button>
+  </section>
+
+</div>
+```
+
+## role="action" vs role="field"
+
+Actions and fields represent fundamentally different interaction modes:
+
+| | role="action" | role="field" |
+|---|---|---|
+| Purpose | Triggers an operation | Accepts a value |
+| Agent behavior | Clicks/activates it | Writes a value to it |
+| State lifecycle | idle → loading → success/error | idle → error (on validation) |
+| Key attribute | data-ai-action | data-ai-field-type |
+| Emits event | action_triggered, action_completed | field_updated |
+
+A submit button is an action. A text input is a field. They work together — the field collects data, the action uses it.
+
+<Callout type="note">
+Never use role="action" on an element that just updates local UI state without a meaningful async operation. Opening a dropdown, scrolling to a section, or toggling a collapsed panel are not "actions" in the contract sense — they are UI interactions. Reserve role="action" for meaningful operations: saves, deletes, submissions, exports.
+</Callout>
+
+## How Action-Driven Design Makes Testing Easier
+
+Because every operation has a stable name, tests can reference actions by intent rather than by DOM structure:
+
+```ts
+// Before: fragile test that references DOM structure
+const saveButton = screen.getByRole("button", { name: /save/i });
+fireEvent.click(saveButton);
+
+// After: semantic test that references the contract
+const saveButton = document.querySelector('[data-ai-action="save-profile"]');
+fireEvent.click(saveButton!);
+
+// Or with the testing utilities
+await triggerAction("save-profile");
+expect(await getActionState("save-profile")).toBe("success");
+```
+
+Tests written against the action contract survive visual redesigns. You can rename the button from "Save" to "Update Profile" and the test still passes — because it is testing the action, not the label.
+
+Action-driven design also makes end-to-end test scripts self-documenting:
+
+```ts
+// The intent is clear from the action names alone
+await triggerAction("save-profile");
+await waitForActionState("save-profile", "success");
+await triggerAction("assign-role");
+await waitForActionState("assign-role", "success");
+await triggerAction("resend-invitation");
+```
+
+## Related
+
+- [Actions reference](/docs/ai-contract/actions)
+- [data-ai-* attributes](/docs/ai-contract/attributes)
+- [Interaction contracts concept](/docs/concepts/interaction-contracts)
+- [State visibility concept](/docs/concepts/state-visibility)

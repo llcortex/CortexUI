@@ -1,0 +1,50 @@
+# Debugging AI Metadata
+
+## Common Problems and Fixes
+
+### Problem: Action not appearing in getAvailableActions()
+
+**Cause:** Element is missing `data-ai-role="action"`, or has `data-ai-state="disabled"`.
+
+**Fix:**
+```js
+// In browser console:
+document.querySelectorAll('[data-ai-role="action"]')
+// If your button is missing, it lacks the attribute
+```
+
+### Problem: Form fields not appearing in getFormSchema()
+
+**Cause:** Form is missing `data-ai-role="form"` or `data-ai-id`.
+
+**Fix:**
+```js
+document.querySelectorAll('[data-ai-role="form"]')
+// Verify your form has both role and id
+```
+
+### Problem: State not updating
+
+**Cause:** State is only reflected visually (CSS class) but data-ai-state attribute is not updated.
+
+**Fix:** Ensure your component syncs data-ai-state with the actual operation state.
+
+## Debugging Workflow
+
+```js
+// 1. Check screen context
+console.log(window.__CORTEX_UI__.getScreenContext());
+
+// 2. List all actions
+console.log(window.__CORTEX_UI__.getAvailableActions());
+
+// 3. Check a specific form
+console.log(window.__CORTEX_UI__.getFormSchema('my-form-id'));
+
+// 4. Check event log
+console.log(window.__CORTEX_UI__.getRecentEvents());
+```
+
+<Callout type="tip">
+Keep the browser console open with `window.__CORTEX_UI__` pinned while developing CortexUI components.
+</Callout>

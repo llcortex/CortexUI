@@ -1,0 +1,66 @@
+# AI Contract Validation
+
+## Overview
+
+Contract validation verifies that every component's data-ai-* attributes are correct, complete, and consistent. The `@cortexui/testing` package provides utilities for this.
+
+## Setup
+
+```bash
+npm install --save-dev @cortexui/testing
+```
+
+```ts
+// vitest.config.ts or jest.config.ts
+import { defineConfig } from 'vitest/config';
+export default defineConfig({
+  test: { environment: 'jsdom' }
+});
+```
+
+## validateAIContract()
+
+```ts
+import { validateAIContract } from '@cortexui/testing';
+
+test('save button has valid AI contract', () => {
+  render(
+    <button
+      data-ai-role="action"
+      data-ai-id="save-profile"
+      data-ai-action="save-profile"
+      data-ai-state="idle"
+    >
+      Save
+    </button>
+  );
+
+  const btn = screen.getByRole('button');
+  const result = validateAIContract(btn);
+
+  expect(result.valid).toBe(true);
+  expect(result.errors).toHaveLength(0);
+});
+```
+
+## What It Validates
+
+- `data-ai-role` is a valid role
+- `data-ai-id` is present and kebab-case
+- `data-ai-action` is present on action roles
+- `data-ai-state` is a valid state
+- `data-ai-field-type` is present on field roles
+- No duplicate `data-ai-id` values on the page
+
+<Callout type="tip">
+Run contract validation in CI. A component that passes visual tests but fails contract validation will break AI agents that depend on it.
+</Callout>
+
+## CI Integration
+
+```yaml
+# .github/workflows/test.yml
+- name: Test
+  run: npm test
+# The validateAIContract tests run as part of your normal test suite
+```

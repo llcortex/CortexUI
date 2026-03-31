@@ -1,0 +1,318 @@
+
+# Extending Components
+
+## The Extension Pattern
+
+CortexUI components are designed to be extended. The base components provide the machine-readable contract layer; domain-specific extensions add the application's specific semantics on top.
+
+The extension pattern follows four steps:
+
+1. Import the base component
+2. Define domain-specific props for your use case
+3. Map domain props to the base component's contract attributes
+4. Pass through all base props to preserve composability
+
+This pattern keeps the contract layer thin and the domain layer expressive, without duplicating the contract machinery in every custom component.
+
+```tsx
+import { ActionButton } from '@cortexui/components';
+
+interface ApproveButtonProps {
+  approvalId: string;
+  requesterId: string;
+  requesterName: string;
+  onApprove: (id: string) => void;
+  state?: 'idle' | 'loading' | 'disabled';
+}
+
+function ApproveButton({
+  approvalId,
+  requesterId,
+  requesterName,
+  onApprove,
+  state = 'idle',
+  ...rest
+}: ApproveButtonProps) {
+  return (
+    <ActionButton
+      action={`approve-request-${approvalId}`}
+      label={`Approve request from ${requesterName}`}
+      state={state}
+      data-ai-entity="approval-request"
+      data-ai-entity-id={approvalId}
+      data-ai-description={`Approves the pending request submitted by ${requesterName} (ID: ${requesterId})`}
+      onAction={() => onApprove(approvalId)}
+      {...rest}
+    />
+  );
+}
+```
+
+<Callout type="tip">
+When extending components, keep action names specific to the domain: `approve-request-42` rather than `approve`. The entity ID embedded in the action name makes AI targeting unambiguous — an agent knows exactly which request it is approving, not just that it is approving something.
+</Callout>
+
+## Domain-Specific State Mappings
+
+When your domain state doesn't map directly to the standard `idle | loading | disabled | error | success` vocabulary, map explicitly in the extension:
+
+```tsx
+import { ActionButton } from '@cortexui/components';
+
+type WorkflowState = 'draft' | 'pending' | 'in-review' | 'approved' | 'rejected';
+
+interface SubmitForReviewButtonProps {
+  documentId: string;
+  workflowState: WorkflowState;
+  onSubmit: (id: string) => void;
+}
+
+function toAiState(workflowState: WorkflowState): 'idle' | 'disabled' {
+  // Only allow submission from 'draft' state
+  return workflowState === 'draft' ? 'idle' : 'disabled';
+}
+
+function SubmitForReviewButton({ documentId, workflowState, onSubmit }: SubmitForReviewButtonProps) {
+  return (
+    <ActionButton
+      action={`submit-for-review-${documentId}`}
+      label="Submit for Review"
+      state={toAiState(workflowState)}
+      data-ai-entity="document"
+      data-ai-entity-id={documentId}
+      data-ai-workflow-state={workflowState}
+      data-ai-description={
+        workflowState === 'draft'
+          ? 'Submit this document for review. Available only when document is in draft state.'
+          : `Not available: document is currently in ${workflowState} state.`
+      }
+      onAction={() => onSubmit(documentId)}
+    />
+  );
+}
+```
+
+## Building Custom Components from Primitives
+
+For cases where the base components don't fit the needed UI pattern, build custom components directly from CortexUI primitives. Primitives provide the lowest-level building blocks — unstyled, contract-ready elements.
+
+```tsx
+import { ButtonBase, Text, Stack } from '@cortexui/primitives';
+
+interface SplitButtonProps {
+  primaryAction: string;
+  primaryLabel: string;
+  secondaryAction: string;
+  secondaryLabel: string;
+  state: 'idle' | 'loading' | 'disabled';
+  onAction: (action: string) => void;
+}
+
+function SplitButton({
+  primaryAction,
+  primaryLabel,
+  secondaryAction,
+  secondaryLabel,
+  state,
+  onAction,
+}: SplitButtonProps) {
+  return (
+    <Stack direction="horizontal" gap="0" data-ai-role="section" data-ai-id={`split-${primaryAction}`}>
+      <ButtonBase
+        data-ai-role="action"
+        data-ai-id={primaryAction}
+        data-ai-action={primaryAction}
+        data-ai-state={state}
+        disabled={state === 'disabled'}
+        onClick={() => state === 'idle' && onAction(primaryAction)}
+      >
+        <Text>{primaryLabel}</Text>
+      </ButtonBase>
+      <ButtonBase
+        data-ai-role="action"
+        data-ai-id={secondaryAction}
+        data-ai-action={secondaryAction}
+        data-ai-state={state}
+        disabled={state === 'disabled'}
+        onClick={() => state === 'idle' && onAction(secondaryAction)}
+      >
+        <Text>{secondaryLabel}</Text>
+      </ButtonBase>
+    </Stack>
+  );
+}
+```
+
+## Extending Form Components
+
+Form extensions follow a similar pattern, mapping domain field types to the standard contract vocabulary:
+
+```tsx
+import { FieldBase } from '@cortexui/primitives';
+
+interface CurrencyFieldProps {
+  fieldId: string;
+  label: string;
+  currency: 'USD' | 'EUR' | 'GBP';
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+}
+
+function CurrencyField({ fieldId, label, currency, value, onChange, required = false }: CurrencyFieldProps) {
+  return (
+    <FieldBase
+      data-ai-role="field"
+      data-ai-id={fieldId}
+      data-ai-field-type="number"
+      data-ai-field-format="currency"
+      data-ai-currency={currency}
+      data-ai-required={required ? 'true' : 'false'}
+      data-ai-label={label}
+      data-ai-description={`${label} amount in ${currency}`}
+    >
+      <label htmlFor={fieldId}>{label}</label>
+      <div className="currency-input-wrapper">
+        <span className="currency-symbol">{currency}</span>
+        <input
+          id={fieldId}
+          type="number"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          min="0"
+          step="0.01"
+        />
+      </div>
+    </FieldBase>
+  );
+}
+```
+
+## Extending Table Components
+
+Data tables often need domain-specific row actions. Extend the base table to add per-row contract annotations:
+
+```tsx
+import { TableBase, TableRow, TableCell } from '@cortexui/primitives';
+
+interface UserTableProps {
+  users: Array<{
+    id: string;
+    name: string;
+    email: string;
+    status: 'active' | 'inactive' | 'suspended';
+  }>;
+  onDeactivate: (userId: string) => void;
+  onReactivate: (userId: string) => void;
+}
+
+function UserTable({ users, onDeactivate, onReactivate }: UserTableProps) {
+  return (
+    <TableBase
+      data-ai-role="table"
+      data-ai-id="users-table"
+      data-ai-entity="user"
+    >
+      {users.map((user) => (
+        <TableRow
+          key={user.id}
+          data-ai-entity-id={user.id}
+          data-ai-row-status={user.status}
+        >
+          <TableCell data-ai-field-type="text" data-ai-label="Name">
+            {user.name}
+          </TableCell>
+          <TableCell data-ai-field-type="email" data-ai-label="Email">
+            {user.email}
+          </TableCell>
+          <TableCell>
+            {user.status === 'active' ? (
+              <button
+                data-ai-role="action"
+                data-ai-id={`deactivate-user-${user.id}`}
+                data-ai-action="deactivate-user"
+                data-ai-state="idle"
+                data-ai-entity="user"
+                data-ai-entity-id={user.id}
+                onClick={() => onDeactivate(user.id)}
+              >
+                Deactivate
+              </button>
+            ) : (
+              <button
+                data-ai-role="action"
+                data-ai-id={`reactivate-user-${user.id}`}
+                data-ai-action="reactivate-user"
+                data-ai-state={user.status === 'suspended' ? 'disabled' : 'idle'}
+                data-ai-entity="user"
+                data-ai-entity-id={user.id}
+                onClick={() => onReactivate(user.id)}
+              >
+                Reactivate
+              </button>
+            )}
+          </TableCell>
+        </TableRow>
+      ))}
+    </TableBase>
+  );
+}
+```
+
+## Contract Inheritance
+
+When building component hierarchies, contract attributes propagate through context. Child components can inherit entity context from parent sections without re-declaring it:
+
+```tsx
+import { Section } from '@cortexui/components';
+
+function UserProfileSection({ userId }: { userId: string }) {
+  return (
+    // Entity context declared once on the section
+    <Section id="user-profile" entity="user" entityId={userId}>
+      {/*
+        All action and field components within this section inherit:
+        - data-ai-entity="user"
+        - data-ai-entity-id={userId}
+
+        No need to repeat entity context on each child element.
+      */}
+      <SaveProfileButton />
+      <DeleteAccountButton />
+      <ProfileForm />
+    </Section>
+  );
+}
+```
+
+<Callout type="note">
+Entity context inheritance only applies to components rendered within a `Section` or `Screen` component. Components rendered outside a section boundary do not inherit entity context and must declare it explicitly via `data-ai-entity` and `data-ai-entity-id`.
+</Callout>
+
+## Testing Extended Components
+
+Extended components should include contract tests alongside visual tests:
+
+```tsx
+import { render } from '@testing-library/react';
+import { getAiContract } from '@cortexui/testing';
+
+test('ApproveButton has correct contract', () => {
+  const { container } = render(
+    <ApproveButton
+      approvalId="req-42"
+      requesterId="user-7"
+      requesterName="Alex"
+      onApprove={() => {}}
+    />
+  );
+
+  const contract = getAiContract(container.querySelector('button')!);
+
+  expect(contract['data-ai-role']).toBe('action');
+  expect(contract['data-ai-action']).toBe('approve-request-req-42');
+  expect(contract['data-ai-state']).toBe('idle');
+  expect(contract['data-ai-entity']).toBe('approval-request');
+  expect(contract['data-ai-entity-id']).toBe('req-42');
+});
+```

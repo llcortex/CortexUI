@@ -1,0 +1,190 @@
+# getScreenContext()
+
+`getScreenContext()` returns a structured description of the current page — its name, the primary entity being displayed, that entity's ID, and the list of named sections present in the layout. It is the starting point for any agent trying to understand where it is and what it is looking at.
+
+## Signature
+
+```ts
+window.__CORTEX_UI__.getScreenContext(): ScreenContext
+```
+
+## Return Type
+
+```ts
+interface ScreenContext {
+  /** The value of data-ai-screen on the page root element. */
+  screen: string;
+
+  /**
+   * The primary entity type shown on this screen.
+   * Derived from data-ai-entity on the top-level section or page wrapper.
+   */
+  entity: string | null;
+
+  /**
+   * The ID of the primary entity instance.
+   * Derived from data-ai-entity-id.
+   */
+  entityId: string | null;
+
+  /**
+   * An ordered list of section names present on the screen.
+   * Each entry corresponds to a data-ai-section attribute value.
+   */
+  sections: string[];
+}
+```
+
+<Callout type="note">
+`entity` and `entityId` are `null` on screens that do not represent a single primary entity — for example, a dashboard or a list view. In those cases, use `getVisibleEntities()` to enumerate all entities on screen.
+</Callout>
+
+## Example Output
+
+```json
+{
+  "screen": "user-profile",
+  "entity": "user",
+  "entityId": "user-123",
+  "sections": ["header", "profile-form", "recent-activity"]
+}
+```
+
+## How the Runtime Derives This Data
+
+The runtime looks for the following attributes to build a `ScreenContext`:
+
+| Field | Source attribute | Location |
+|---|---|---|
+| `screen` | `data-ai-screen` | Any ancestor of the body, typically the page root |
+| `entity` | `data-ai-entity` | The element bearing `data-ai-screen`, or its first child |
+| `entityId` | `data-ai-entity-id` | The same element as `entity` |
+| `sections` | `data-ai-section` | All descendants, collected in DOM order |
+
+## Annotating Your Page
+
+```tsx
+// pages/users/[id]/page.tsx
+export default function UserProfilePage({ userId }: { userId: string }) {
+  return (
+    <div
+      data-ai-screen="user-profile"
+      data-ai-entity="user"
+      data-ai-entity-id={userId}
+    >
+      <section data-ai-section="header">
+        <UserHeader userId={userId} />
+      </section>
+
+      <section data-ai-section="profile-form">
+        <EditProfileForm userId={userId} />
+      </section>
+
+      <section data-ai-section="recent-activity">
+        <RecentActivityList userId={userId} />
+      </section>
+    </div>
+  );
+}
+```
+
+With these annotations in place, `getScreenContext()` will return the example output above.
+
+## Usage in an AI Agent
+
+```ts
+async function navigateToUserProfile(userId: string) {
+  // After navigating to the user profile page...
+  const ctx = window.__CORTEX_UI__.getScreenContext();
+
+  if (ctx.screen !== 'user-profile') {
+    throw new Error(`Expected user-profile screen, got: ${ctx.screen}`);
+  }
+
+  if (ctx.entityId !== userId) {
+    throw new Error(`Expected user ${userId}, got: ${ctx.entityId}`);
+  }
+
+  console.log('Agent confirmed: on correct user profile page');
+  console.log('Available sections:', ctx.sections);
+}
+```
+
+## Real-World Scenario: Agent Navigation Verification
+
+A common pattern in agent workflows is to navigate to a page and then verify arrival before taking further action. Without `getScreenContext()`, an agent must either parse the URL (brittle, breaks on query params and hash routing) or look for known DOM elements (fragile, breaks on redesigns).
+
+With the runtime, navigation verification is a single, reliable check:
+
+```ts
+async function ensureOnScreen(expectedScreen: string) {
+  const ctx = window.__CORTEX_UI__.getScreenContext();
+
+  if (ctx.screen !== expectedScreen) {
+    // Log the mismatch and trigger a re-navigation
+    console.warn(`Screen mismatch. Expected "${expectedScreen}", found "${ctx.screen}"`);
+    return false;
+  }
+
+  return true;
+}
+
+// In the agent loop:
+await router.push(`/users/${userId}`);
+await waitForPageLoad();
+const onCorrectPage = await ensureOnScreen('user-profile');
+```
+
+<Callout type="tip">
+Pair `getScreenContext()` with `getAvailableActions()` after every navigation. The screen context tells you **where you are**; available actions tell you **what you can do**.
+</Callout>
+
+## Combining with Sections
+
+The `sections` array reflects the structural layout of the current page. Agents can use it to determine whether a specific section has rendered — for example, whether a lazy-loaded "recent activity" panel is present before attempting to interact with it.
+
+```ts
+const ctx = window.__CORTEX_UI__.getScreenContext();
+
+if (ctx.sections.includes('recent-activity')) {
+  // Safe to interact with the recent activity section
+  const actions = window.__CORTEX_UI__.getAvailableActions();
+  const loadMoreAction = actions.find(a => a.section === 'recent-activity');
+}
+```
+
+## Error Cases
+
+### Called on a page without `data-ai-screen`
+
+If no ancestor element has a `data-ai-screen` attribute, `getScreenContext()` returns a degraded object:
+
+```json
+{
+  "screen": "",
+  "entity": null,
+  "entityId": null,
+  "sections": []
+}
+```
+
+The runtime does not throw — it returns a safe empty value. You can detect this case by checking `ctx.screen === ''`.
+
+<Callout type="warning">
+A missing `data-ai-screen` attribute means the page has not been annotated with a CortexUI AI contract. Agent code should treat this as an unsupported page and avoid taking actions on it.
+</Callout>
+
+### Called before the page has mounted
+
+If called synchronously before React has mounted the page (e.g. in a `<script>` tag in the document `<head>`), the runtime may return an empty context. Always call runtime methods after `DOMContentLoaded` or inside an effect.
+
+### entityId is present but entity is missing
+
+This indicates an annotation error on the component. The runtime will still return the `entityId` but log a console warning asking you to add `data-ai-entity` alongside `data-ai-entity-id`.
+
+## Related
+
+- [Runtime Overview](/docs/runtime/overview) — how the runtime works
+- [getAvailableActions()](/docs/runtime/get-available-actions) — what actions are available on the current screen
+- [Navigation Patterns](/docs/patterns/navigation) — AI agent navigation flows
+- [Agent Integration](/docs/advanced/agent-integration) — full agent workflow examples

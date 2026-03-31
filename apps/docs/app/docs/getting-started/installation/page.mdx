@@ -1,0 +1,257 @@
+# Installation
+
+This guide walks you through installing CortexUI in a new or existing project. CortexUI is a monorepo of focused packages — you install only what you need.
+
+## Prerequisites
+
+Before installing CortexUI, ensure your project meets the following requirements:
+
+- **Node.js** 18.0 or later
+- **React** 18.0 or later
+- **TypeScript** 4.9 or later (strongly recommended — CortexUI's type system is a core part of the developer experience)
+- A React framework or bundler: Next.js 13+, Vite, or Create React App
+
+<Callout type="note">
+CortexUI is React-first. Vanilla JS support is available via `@cortexui/ai-contract` and the runtime script, but the full component library requires React 18+. See the [Vanilla JS guide](/docs/getting-started/vanilla-js) for framework-agnostic usage.
+</Callout>
+
+## Packages Overview
+
+CortexUI is split into focused packages so you can install exactly what your project needs:
+
+| Package | Description | Required |
+|---|---|---|
+| `@cortexui/components` | The full component library (buttons, forms, layout, etc.) | Yes, for components |
+| `@cortexui/ai-contract` | TypeScript types and utilities for the semantic layer | Yes |
+| `@cortexui/runtime` | The `window.__CORTEX_UI__` runtime inspection API | Recommended |
+| `@cortexui/primitives` | Unstyled base primitives (if you bring your own styles) | Optional |
+| `@cortexui/tokens` | Design tokens (colors, spacing, typography) as CSS variables | Optional |
+
+## Installing the Core Packages
+
+### npm
+
+```bash
+npm install @cortexui/components @cortexui/ai-contract @cortexui/runtime
+```
+
+### pnpm
+
+```bash
+pnpm add @cortexui/components @cortexui/ai-contract @cortexui/runtime
+```
+
+### yarn
+
+```bash
+yarn add @cortexui/components @cortexui/ai-contract @cortexui/runtime
+```
+
+## Installing Optional Packages
+
+If you want to use the unstyled primitives (to apply your own design system on top of CortexUI's AI contract layer):
+
+```bash
+# npm
+npm install @cortexui/primitives
+
+# pnpm
+pnpm add @cortexui/primitives
+
+# yarn
+yarn add @cortexui/primitives
+```
+
+If you want the design tokens as CSS custom properties:
+
+```bash
+# npm
+npm install @cortexui/tokens
+
+# pnpm
+pnpm add @cortexui/tokens
+
+# yarn
+yarn add @cortexui/tokens
+```
+
+## Peer Dependencies
+
+CortexUI has the following peer dependencies that you must install separately if they are not already in your project:
+
+```bash
+# npm
+npm install react@^18 react-dom@^18
+
+# pnpm
+pnpm add react@^18 react-dom@^18
+
+# yarn
+yarn add react@^18 react-dom@^18
+```
+
+If you are using TypeScript (recommended):
+
+```bash
+# npm
+npm install --save-dev @types/react@^18 @types/react-dom@^18
+
+# pnpm
+pnpm add -D @types/react@^18 @types/react-dom@^18
+
+# yarn
+yarn add --dev @types/react@^18 @types/react-dom@^18
+```
+
+## TypeScript Setup
+
+CortexUI is written in TypeScript and ships its own type definitions — no `@types/*` packages needed for CortexUI itself. However, there is one important step: adding the CortexUI global type augmentations to your TypeScript project.
+
+Add the following to your `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"],
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true
+  },
+  "include": [
+    "src",
+    "node_modules/@cortexui/runtime/types/global.d.ts"
+  ]
+}
+```
+
+The `global.d.ts` file adds the `window.__CORTEX_UI__` type to the global `Window` interface, giving you full IntelliSense on the runtime API.
+
+Alternatively, add a reference directive to your app's entry file:
+
+```tsx
+/// <reference types="@cortexui/runtime/types/global" />
+```
+
+## Importing Design Tokens (Optional)
+
+If you installed `@cortexui/tokens`, import the CSS file in your app's root:
+
+```tsx
+// In your root layout or app entry point
+import "@cortexui/tokens/css/base.css";
+import "@cortexui/tokens/css/dark.css"; // optional dark mode tokens
+```
+
+Or in a CSS file:
+
+```css
+@import "@cortexui/tokens/css/base.css";
+@import "@cortexui/tokens/css/dark.css";
+```
+
+The tokens are exposed as CSS custom properties:
+
+```css
+:root {
+  --cortex-color-primary: #2563eb;
+  --cortex-color-primary-hover: #1d4ed8;
+  --cortex-spacing-1: 0.25rem;
+  --cortex-spacing-4: 1rem;
+  /* ... */
+}
+```
+
+## Verification: Your First Import
+
+After installation, verify everything is working by importing and rendering a component:
+
+```tsx
+// src/App.tsx or app/page.tsx
+import { ActionButton } from "@cortexui/components";
+
+export default function App() {
+  return (
+    <div>
+      <ActionButton
+        aiId="test-button"
+        action="test-action"
+        aiState="idle"
+      >
+        Hello CortexUI
+      </ActionButton>
+    </div>
+  );
+}
+```
+
+Start your development server and open the page. You should see a styled button rendered on screen.
+
+### Verifying the Semantic Layer
+
+Open your browser's DevTools, select the button in the Elements panel, and verify that the `data-ai-*` attributes are present:
+
+```html
+<button
+  data-ai-id="test-button"
+  data-ai-role="action"
+  data-ai-action="test-action"
+  data-ai-state="idle"
+  class="..."
+>
+  Hello CortexUI
+</button>
+```
+
+### Verifying the Runtime API
+
+Open the browser console and run:
+
+```javascript
+window.__CORTEX_UI__.getAvailableActions()
+```
+
+You should see an array containing your test button's action:
+
+```javascript
+[
+  {
+    id: "test-button",
+    action: "test-action",
+    state: "idle",
+    screen: undefined,
+    section: undefined
+  }
+]
+```
+
+<Callout type="tip">
+If `window.__CORTEX_UI__` is undefined, you have not yet wrapped your app with the CortexUI provider. See the [Project Setup guide](/docs/getting-started/project-setup) for the required provider setup.
+</Callout>
+
+## Troubleshooting Common Installation Issues
+
+### "Module not found: @cortexui/components"
+
+Ensure you have run your package manager's install command and that the package appears in your `node_modules`. If using a monorepo with workspace: protocol, ensure the workspace root has been bootstrapped.
+
+### TypeScript errors on `data-ai-*` props
+
+The `data-ai-*` props (like `aiId`, `action`, `aiState`) are typed by CortexUI's component props interfaces. If you see TypeScript errors, ensure you have imported the component from `@cortexui/components` and not from a conflicting namespace.
+
+### `window.__CORTEX_UI__` is undefined
+
+You need to wrap your application with the `CortexProvider` component and initialize the runtime. See [Project Setup](/docs/getting-started/project-setup) for the full setup guide.
+
+### CSS not loading
+
+If components render without styles, ensure you have imported the CortexUI styles file in your app root:
+
+```tsx
+import "@cortexui/components/styles.css";
+```
+
+## Next Steps
+
+- [Set up your project with the CortexUI provider](/docs/getting-started/project-setup)
+- [Build your first component](/docs/getting-started/first-component)
+- [React integration guide](/docs/getting-started/react)

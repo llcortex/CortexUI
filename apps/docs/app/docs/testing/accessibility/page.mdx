@@ -1,0 +1,34 @@
+# Accessibility Testing
+
+## Setup with jest-axe
+
+```bash
+npm install --save-dev jest-axe @types/jest-axe
+```
+
+```ts
+import { axe, toHaveNoViolations } from 'jest-axe';
+expect.extend(toHaveNoViolations);
+
+test('ActionButton has no accessibility violations', async () => {
+  const { container } = render(
+    <ActionButton action="save" state="idle" label="Save" />
+  );
+  const results = await axe(container);
+  expect(results).toHaveNoViolations();
+});
+```
+
+## Keyboard Testing
+
+```tsx
+test('Modal closes on ESC', () => {
+  render(<Modal isOpen onClose={mockClose} title="Test">Content</Modal>);
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(mockClose).toHaveBeenCalled();
+});
+```
+
+<Callout type="note">
+Accessibility tests and AI contract validation tests are complementary. Run both in CI.
+</Callout>

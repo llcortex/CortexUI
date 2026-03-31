@@ -1,0 +1,340 @@
+# States Reference
+
+State is the live condition of a UI element at any given moment. The `data-ai-state` attribute exposes this condition as a machine-readable value, allowing AI agents to understand what an element is currently doing without any visual inference.
+
+## The 7 States
+
+| State | Meaning | Typical Element |
+|---|---|---|
+| idle | Ready and waiting for interaction | Buttons, inputs, modals |
+| loading | An async operation is in progress | Buttons, form containers |
+| success | An operation completed successfully | Buttons, status indicators |
+| error | An operation failed | Buttons, fields, status indicators |
+| disabled | Not currently interactable | Buttons, inputs |
+| expanded | An overlay or collapsible is open | Modals, dropdowns, accordions |
+| selected | The element is in a chosen or active state | Tabs, list items, checkboxes |
+
+## State Machine: Button Lifecycle
+
+The most common state flow is a button that triggers an async operation:
+
+```
+[idle] --click--> [loading] --resolve--> [success]
+                            --reject---> [error]
+[idle] --disable--> [disabled]
+[disabled] --enable--> [idle]
+[success] --reset--> [idle]
+[error] --reset--> [idle]
+```
+
+This machine is deterministic. Every transition has a clear trigger. AI agents rely on this predictability — after triggering an action, they poll `data-ai-state` or listen for events to know when to proceed.
+
+<Callout type="important">
+State must be updated synchronously at the exact moment the underlying condition changes. If a network request fires, the button's state becomes "loading" at that same instant — not after a setTimeout or after the next render cycle. Delayed state updates break agent timing assumptions.
+</Callout>
+
+## idle
+
+### What It Means
+
+The element is in its default, resting condition. It is available for interaction and no operation is currently in progress.
+
+### When to Apply
+
+Set on any action or field when:
+- The page first loads
+- A previous operation has completed and the element has been reset
+- A previously disabled element becomes available
+
+### Code Example
+
+```tsx
+// Initial render — button starts idle
+<button
+  data-ai-role="action"
+  data-ai-id="save-profile"
+  data-ai-action="save-profile"
+  data-ai-state="idle"
+  onClick={handleSave}
+>
+  Save Profile
+</button>
+
+// After success, reset back to idle
+function handleReset() {
+  setState("idle");
+  clearResult();
+}
+```
+
+## loading
+
+### What It Means
+
+An async operation has been initiated and has not yet resolved. The element is temporarily non-interactable while the operation is in flight.
+
+### When to Apply
+
+Set immediately when an async operation begins — on the same tick as the function call that starts it. Do not wait for any intermediate state.
+
+### Code Example
+
+```tsx
+async function handleSave() {
+  // Set loading IMMEDIATELY — not after await
+  setState("loading");
+
+  try {
+    await saveProfile(formData);
+    setState("success");
+    setResult("success");
+  } catch (err) {
+    setState("error");
+    setResult(err.code ?? "unknown-error");
+  }
+}
+
+// In the component
+<button
+  data-ai-role="action"
+  data-ai-id="save-profile"
+  data-ai-action="save-profile"
+  data-ai-state={state}  // "idle" | "loading" | "success" | "error"
+  data-ai-result={result}
+  disabled={state === "loading"}
+  onClick={handleSave}
+>
+  {state === "loading" ? "Saving..." : "Save Profile"}
+</button>
+```
+
+## success
+
+### What It Means
+
+The most recent operation completed without error. The element may show a confirmation visual, and the result attribute is set to `"success"` or a more specific success value.
+
+### When to Apply
+
+Set immediately when an async operation resolves successfully. Typically shown for a short duration (2–4 seconds) before resetting to idle, or left in place until the user takes another action.
+
+### Code Example
+
+```tsx
+// Transition sequence
+// idle → (click) → loading → (resolve) → success
+
+<button
+  data-ai-role="action"
+  data-ai-id="submit-order"
+  data-ai-action="submit-order"
+  data-ai-state="success"
+  data-ai-result="success"
+>
+  Order Submitted ✓
+</button>
+```
+
+## error
+
+### What It Means
+
+The most recent operation failed. The element reflects the failure and `data-ai-result` contains a machine-readable error code.
+
+### When to Apply
+
+Set immediately when an async operation rejects or returns an error response. The error state persists until the user retries or the state is explicitly reset.
+
+### Code Example
+
+```tsx
+// After a failed network request
+<button
+  data-ai-role="action"
+  data-ai-id="submit-order"
+  data-ai-action="submit-order"
+  data-ai-state="error"
+  data-ai-result="payment-declined"
+  onClick={handleRetry}
+>
+  Payment Failed — Retry
+</button>
+```
+
+<Callout type="tip">
+Use specific error codes in data-ai-result rather than generic "error". Values like "validation-failed", "payment-declined", "network-timeout", or "insufficient-permissions" let AI agents decide intelligently what to do next — retry, show a different form, or escalate to a human.
+</Callout>
+
+## disabled
+
+### What It Means
+
+The element exists but is not currently available for interaction. Disabled is a condition, not a persistent state — elements can become enabled again based on application logic.
+
+### When to Apply
+
+- The user lacks permission to perform the action
+- A prerequisite condition is not met (e.g., a form is incomplete)
+- The feature is temporarily unavailable
+
+### Code Example
+
+```tsx
+// Form is incomplete — disable submit
+<button
+  data-ai-role="action"
+  data-ai-id="submit-form"
+  data-ai-action="submit-form"
+  data-ai-state="disabled"
+  disabled
+>
+  Submit (complete form first)
+</button>
+
+// Permission-based disabling
+<button
+  data-ai-role="action"
+  data-ai-id="delete-account"
+  data-ai-action="delete-account"
+  data-ai-state="disabled"
+  disabled
+  aria-disabled="true"
+>
+  Delete Account
+</button>
+```
+
+### Important Note
+
+Always set both `data-ai-state="disabled"` and the native HTML `disabled` attribute (or `aria-disabled="true"`). The AI contract reads `data-ai-state`; assistive technology reads `disabled` and `aria-disabled`. Both must be set to serve both audiences.
+
+## expanded
+
+### What It Means
+
+An overlay, collapsible, accordion, or dropdown is currently open and visible. Used primarily on modals, dropdowns, and disclosure components.
+
+### When to Apply
+
+- A modal is open
+- A dropdown menu is visible
+- An accordion section is revealed
+- A tooltip or popover is shown
+
+### Code Example
+
+```tsx
+// Modal open
+<dialog
+  data-ai-role="modal"
+  data-ai-id="confirm-delete-modal"
+  data-ai-state="expanded"
+  open
+  aria-modal="true"
+>
+  <p>Confirm deletion?</p>
+  <button data-ai-role="action" data-ai-id="confirm-delete" data-ai-action="delete-record" data-ai-state="idle">
+    Delete
+  </button>
+</dialog>
+
+// Dropdown open
+<div
+  data-ai-role="action"
+  data-ai-id="actions-menu"
+  data-ai-state="expanded"
+  aria-expanded="true"
+>
+  <menu>
+    <button data-ai-role="action" data-ai-id="edit-record" data-ai-action="edit-record" data-ai-state="idle">Edit</button>
+    <button data-ai-role="action" data-ai-id="archive-record" data-ai-action="archive-record" data-ai-state="idle">Archive</button>
+  </menu>
+</div>
+```
+
+## selected
+
+### What It Means
+
+The element is in an active, chosen, or toggled-on state. Used for tabs, list items, toggle buttons, checkboxes, and radio buttons.
+
+### When to Apply
+
+- A tab is the active tab
+- A filter chip is active
+- A list item is currently chosen
+- A toggle is on
+
+### Code Example
+
+```tsx
+// Tab navigation
+<div role="tablist">
+  <button
+    data-ai-role="action"
+    data-ai-id="tab-overview"
+    data-ai-action="navigate-to-overview"
+    data-ai-state="selected"
+    role="tab"
+    aria-selected="true"
+  >
+    Overview
+  </button>
+  <button
+    data-ai-role="action"
+    data-ai-id="tab-activity"
+    data-ai-action="navigate-to-activity"
+    data-ai-state="idle"
+    role="tab"
+    aria-selected="false"
+  >
+    Activity
+  </button>
+</div>
+
+// Filter chip
+<button
+  data-ai-role="action"
+  data-ai-id="filter-active-users"
+  data-ai-action="filter-active-users"
+  data-ai-state="selected"
+  aria-pressed="true"
+>
+  Active Users
+</button>
+```
+
+## State and Accessibility
+
+Every `data-ai-state` value has a corresponding ARIA attribute. Set both — they serve different consumers.
+
+| data-ai-state | ARIA equivalent |
+|---|---|
+| loading | aria-busy="true" |
+| disabled | aria-disabled="true" + disabled |
+| expanded | aria-expanded="true" |
+| selected | aria-selected="true" or aria-pressed="true" |
+| error | aria-invalid="true" |
+
+```html
+<!-- Fully annotated loading button -->
+<button
+  data-ai-role="action"
+  data-ai-id="save-profile"
+  data-ai-action="save-profile"
+  data-ai-state="loading"
+  disabled
+  aria-busy="true"
+  aria-disabled="true"
+>
+  Saving...
+</button>
+```
+
+## Related
+
+- [data-ai-* attributes](/docs/ai-contract/attributes)
+- [Actions reference](/docs/ai-contract/actions)
+- [Events reference](/docs/ai-contract/events)
+- [State visibility concept](/docs/concepts/state-visibility)
+- [Best practices](/docs/ai-contract/best-practices)

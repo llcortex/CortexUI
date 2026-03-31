@@ -1,0 +1,494 @@
+# React Integration
+
+CortexUI is built for React 18. This guide covers idiomatic React patterns for building AI-native interfaces: component imports, state synchronization, the `useAIState` hook, form integration with React Hook Form, and a complete form example.
+
+## Prerequisites
+
+- [Installation](/docs/getting-started/installation) complete
+- [Project Setup](/docs/getting-started/project-setup) complete (app wrapped with `CortexProvider`)
+- React 18+ in your project
+
+## Component Imports
+
+All CortexUI components are available from `@cortexui/components`:
+
+```tsx
+import {
+  // Interactive components
+  ActionButton,
+  ActionLink,
+  ActionToggle,
+
+  // Form components
+  FormField,
+  TextInput,
+  SelectInput,
+  CheckboxInput,
+  RadioGroup,
+
+  // Layout components
+  ScreenContainer,
+  SectionContainer,
+  Card,
+
+  // Data display
+  DataTable,
+  StatusBadge,
+  EntityDisplay,
+} from "@cortexui/components";
+```
+
+Runtime and context hooks come from `@cortexui/runtime`:
+
+```tsx
+import {
+  CortexProvider,
+  ScreenProvider,
+  SectionProvider,
+  useScreen,
+  useSection,
+  useAIState,
+  useCortexRuntime,
+} from "@cortexui/runtime";
+```
+
+Type definitions come from `@cortexui/ai-contract`:
+
+```tsx
+import type {
+  AIState,
+  AIRole,
+  AIAction,
+  CortexContract,
+} from "@cortexui/ai-contract";
+```
+
+## State Management Patterns
+
+### Pattern 1: Direct State Binding
+
+The simplest pattern: bind `aiState` directly to a `useState` value. The AI contract reflects whatever state your component is in.
+
+```tsx
+import { useState } from "react";
+import { ActionButton } from "@cortexui/components";
+import type { AIState } from "@cortexui/ai-contract";
+
+function DeleteButton({ onDelete }: { onDelete: () => Promise<void> }) {
+  const [state, setState] = useState<AIState>("idle");
+
+  async function handleDelete() {
+    setState("loading");
+    try {
+      await onDelete();
+      setState("success");
+    } catch {
+      setState("error");
+    } finally {
+      // Reset after a moment so the button is usable again
+      setTimeout(() => setState("idle"), 3000);
+    }
+  }
+
+  return (
+    <ActionButton
+      aiId="delete-item-btn"
+      action="delete-item"
+      aiState={state}
+      onClick={handleDelete}
+      variant="destructive"
+    >
+      Delete
+    </ActionButton>
+  );
+}
+```
+
+### Pattern 2: Derived State
+
+When component state is derived from server state (e.g., from a data fetching library), compute `aiState` from the query status:
+
+```tsx
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { ActionButton } from "@cortexui/components";
+import type { AIState } from "@cortexui/ai-contract";
+
+function mapMutationStateToAIState(
+  status: "idle" | "pending" | "success" | "error"
+): AIState {
+  const map: Record<string, AIState> = {
+    idle: "idle",
+    pending: "loading",
+    success: "success",
+    error: "error",
+  };
+  return map[status] ?? "idle";
+}
+
+function PublishButton({ articleId }: { articleId: string }) {
+  const mutation = useMutation({
+    mutationFn: () => api.publishArticle(articleId),
+  });
+
+  const aiState = mapMutationStateToAIState(mutation.status);
+
+  return (
+    <ActionButton
+      aiId={`publish-article-${articleId}`}
+      action="publish-article"
+      aiState={aiState}
+      aiEntity="article"
+      aiEntityId={articleId}
+      onClick={() => mutation.mutate()}
+      disabled={mutation.isPending}
+    >
+      {mutation.isPending ? "Publishing..." : "Publish"}
+    </ActionButton>
+  );
+}
+```
+
+## The useAIState Hook
+
+The `useAIState` hook is a convenience wrapper that manages the AI state lifecycle for you. It handles the common pattern of idle → loading → success/error → idle:
+
+```tsx
+import { useAIState } from "@cortexui/runtime";
+import { ActionButton } from "@cortexui/components";
+
+function SaveButton({ onSave }: { onSave: () => Promise<void> }) {
+  const { aiState, wrap } = useAIState({
+    successDuration: 2000, // How long to show "success" before resetting to "idle"
+    errorDuration: 5000,   // How long to show "error" before resetting to "idle"
+  });
+
+  // `wrap` handles setState transitions automatically
+  const handleSave = wrap(onSave);
+
+  return (
+    <ActionButton
+      aiId="save-btn"
+      action="save"
+      aiState={aiState}
+      onClick={handleSave}
+      disabled={aiState === "loading"}
+    >
+      {aiState === "loading" ? "Saving..." : "Save"}
+    </ActionButton>
+  );
+}
+```
+
+### useAIState Options
+
+```tsx
+const { aiState, wrap, setState } = useAIState({
+  // Initial state (default: "idle")
+  initialState: "idle",
+
+  // How long to hold "success" state before resetting (ms, default: 2000)
+  successDuration: 2000,
+
+  // How long to hold "error" state before resetting (ms, default: 0 = no reset)
+  errorDuration: 5000,
+
+  // Called on every state transition
+  onStateChange: (prev, next) => {
+    analytics.track("ui_state_change", { prev, next });
+  },
+});
+```
+
+The `wrap` function takes any async function and wraps it with automatic state transitions: calls `setState("loading")` before the function, `setState("success")` on resolution, and `setState("error")` on rejection.
+
+## Forms with React Hook Form
+
+CortexUI's form components integrate cleanly with React Hook Form. The AI contract is preserved through the integration.
+
+### Basic Setup
+
+```tsx
+import { useForm } from "react-hook-form";
+import { FormField, TextInput, ActionButton } from "@cortexui/components";
+import { SectionProvider } from "@cortexui/runtime";
+import { useAIState } from "@cortexui/runtime";
+
+interface ProfileFormData {
+  displayName: string;
+  email: string;
+  bio: string;
+}
+
+function ProfileForm({ userId }: { userId: string }) {
+  const { register, handleSubmit, formState: { errors } } = useForm<ProfileFormData>();
+  const { aiState, wrap } = useAIState({ successDuration: 2000 });
+
+  const onSubmit = wrap(async (data: ProfileFormData) => {
+    await api.updateProfile(userId, data);
+  });
+
+  return (
+    <SectionProvider section="profile-form">
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <FormField
+          aiId="profile-display-name"
+          aiRole="input"
+          aiEntity="user"
+          aiEntityId={userId}
+          label="Display Name"
+          error={errors.displayName?.message}
+        >
+          <TextInput
+            {...register("displayName", {
+              required: "Display name is required",
+              minLength: { value: 2, message: "Name must be at least 2 characters" },
+            })}
+            placeholder="Your display name"
+          />
+        </FormField>
+
+        <FormField
+          aiId="profile-email"
+          aiRole="input"
+          aiEntity="user"
+          aiEntityId={userId}
+          label="Email Address"
+          error={errors.email?.message}
+        >
+          <TextInput
+            {...register("email", {
+              required: "Email is required",
+              pattern: {
+                value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                message: "Enter a valid email address",
+              },
+            })}
+            type="email"
+            placeholder="you@example.com"
+          />
+        </FormField>
+
+        <FormField
+          aiId="profile-bio"
+          aiRole="input"
+          aiEntity="user"
+          aiEntityId={userId}
+          label="Bio"
+          error={errors.bio?.message}
+        >
+          <TextInput
+            {...register("bio", { maxLength: { value: 160, message: "Bio must be under 160 characters" } })}
+            multiline
+            rows={3}
+            placeholder="Tell us about yourself"
+          />
+        </FormField>
+
+        <ActionButton
+          aiId="profile-form-submit"
+          action="save-profile"
+          aiState={aiState}
+          aiEntity="user"
+          aiEntityId={userId}
+          type="submit"
+          disabled={aiState === "loading"}
+        >
+          {aiState === "loading" ? "Saving..." : "Save Profile"}
+        </ActionButton>
+      </form>
+    </SectionProvider>
+  );
+}
+```
+
+<Callout type="tip">
+Notice that both `FormField` and `ActionButton` share the same `aiEntityId`. This links the form fields and the submit action to the same user entity, allowing an AI agent to understand that filling these fields and clicking submit are all operations on the same user record.
+</Callout>
+
+## Complete Form Example with AI Contract
+
+Here is a complete, production-quality checkout form that demonstrates the full AI contract pattern in React:
+
+```tsx
+// components/CheckoutForm.tsx
+"use client";
+
+import { useForm, Controller } from "react-hook-form";
+import {
+  FormField,
+  TextInput,
+  SelectInput,
+  ActionButton,
+  Card,
+} from "@cortexui/components";
+import { SectionProvider, useAIState } from "@cortexui/runtime";
+import type { AIState } from "@cortexui/ai-contract";
+
+interface CheckoutFormData {
+  email: string;
+  cardNumber: string;
+  expiryMonth: string;
+  expiryYear: string;
+  cvv: string;
+  nameOnCard: string;
+}
+
+interface CheckoutFormProps {
+  orderId: string;
+  totalAmount: number;
+  onSuccess: () => void;
+}
+
+export function CheckoutForm({ orderId, totalAmount, onSuccess }: CheckoutFormProps) {
+  const {
+    register,
+    control,
+    handleSubmit,
+    formState: { errors, isValid },
+  } = useForm<CheckoutFormData>({ mode: "onBlur" });
+
+  const { aiState, wrap } = useAIState({
+    successDuration: 3000,
+  });
+
+  const processPayment = wrap(async (data: CheckoutFormData) => {
+    await api.processCheckout(orderId, data);
+    onSuccess();
+  });
+
+  const months = Array.from({ length: 12 }, (_, i) => ({
+    value: String(i + 1).padStart(2, "0"),
+    label: String(i + 1).padStart(2, "0"),
+  }));
+
+  const years = Array.from({ length: 10 }, (_, i) => {
+    const year = new Date().getFullYear() + i;
+    return { value: String(year), label: String(year) };
+  });
+
+  return (
+    <Card>
+      <SectionProvider section="payment-details">
+        <form
+          data-ai-id="checkout-form"
+          data-ai-role="form"
+          data-ai-action="submit-order"
+          data-ai-state={aiState}
+          data-ai-entity="order"
+          data-ai-entity-id={orderId}
+          onSubmit={handleSubmit(processPayment)}
+        >
+          <h2>Payment Details</h2>
+
+          <FormField
+            aiId="checkout-email"
+            aiEntity="order"
+            aiEntityId={orderId}
+            label="Email"
+            error={errors.email?.message}
+          >
+            <TextInput
+              {...register("email", { required: "Email required" })}
+              type="email"
+              placeholder="you@example.com"
+            />
+          </FormField>
+
+          <FormField
+            aiId="checkout-card-number"
+            aiEntity="order"
+            aiEntityId={orderId}
+            label="Card Number"
+            error={errors.cardNumber?.message}
+          >
+            <TextInput
+              {...register("cardNumber", { required: "Card number required" })}
+              placeholder="1234 5678 9012 3456"
+              inputMode="numeric"
+            />
+          </FormField>
+
+          <div style={{ display: "flex", gap: "1rem" }}>
+            <FormField
+              aiId="checkout-expiry-month"
+              aiEntity="order"
+              aiEntityId={orderId}
+              label="Month"
+              error={errors.expiryMonth?.message}
+            >
+              <Controller
+                name="expiryMonth"
+                control={control}
+                rules={{ required: "Required" }}
+                render={({ field }) => (
+                  <SelectInput {...field} options={months} placeholder="MM" />
+                )}
+              />
+            </FormField>
+
+            <FormField
+              aiId="checkout-expiry-year"
+              aiEntity="order"
+              aiEntityId={orderId}
+              label="Year"
+              error={errors.expiryYear?.message}
+            >
+              <Controller
+                name="expiryYear"
+                control={control}
+                rules={{ required: "Required" }}
+                render={({ field }) => (
+                  <SelectInput {...field} options={years} placeholder="YYYY" />
+                )}
+              />
+            </FormField>
+
+            <FormField
+              aiId="checkout-cvv"
+              aiEntity="order"
+              aiEntityId={orderId}
+              label="CVV"
+              error={errors.cvv?.message}
+            >
+              <TextInput
+                {...register("cvv", { required: "CVV required" })}
+                placeholder="123"
+                inputMode="numeric"
+                maxLength={4}
+              />
+            </FormField>
+          </div>
+
+          <ActionButton
+            aiId="checkout-submit-btn"
+            action="submit-order"
+            aiState={aiState}
+            aiEntity="order"
+            aiEntityId={orderId}
+            type="submit"
+            disabled={!isValid || aiState === "loading"}
+            variant="primary"
+            fullWidth
+          >
+            {aiState === "loading"
+              ? "Processing..."
+              : `Pay $${totalAmount.toFixed(2)}`}
+          </ActionButton>
+        </form>
+      </SectionProvider>
+    </Card>
+  );
+}
+```
+
+An AI agent interacting with this form can:
+- Discover all input fields related to `order` entity `orderId`
+- Fill them by `aiId` without any text parsing
+- Submit by triggering the `submit-order` action
+- Observe the `data-ai-state` transitions to know when payment is processing and when it succeeds
+
+## Next Steps
+
+- [Vanilla JS integration](/docs/getting-started/vanilla-js)
+- [Your first component tutorial](/docs/getting-started/first-component)
+- [CortexUI philosophy](/docs/introduction/philosophy)

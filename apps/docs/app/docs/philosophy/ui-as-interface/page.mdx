@@ -1,0 +1,103 @@
+
+# UI as Machine Interface
+
+There is a mental model that changes how you design interfaces once you adopt it: **the button is an endpoint**.
+
+Not a metaphor. Not a loose analogy. A precise reframing: every interactive element in a UI is, from the perspective of an automated operator, a function call with a signature, preconditions, and a return value. Design with that in mind and the interface becomes something new — still fully human-navigable, but also machine-operable with the same reliability as a well-documented API.
+
+## The Analogy
+
+Consider the structural parallel:
+
+```
+REST API endpoint:     POST /api/users/profile
+UI equivalent:         button[data-ai-action="save-profile"]
+
+API request body:      { name: string, email: string }
+UI equivalent:         form fields with data-ai-field-type="text" | "email"
+
+API response:          { status: 200, user: { id, name, email } }
+UI equivalent:         action_completed event with result: "success"
+
+API error response:    { status: 400, error: "Invalid email" }
+UI equivalent:         action_completed event with result: "error", message: "Invalid email"
+
+API precondition:      Auth token required (401 if missing)
+UI equivalent:         data-ai-state="disabled" when user is not authenticated
+```
+
+This parallel is not superficial. When you look at what a REST API provides to its consumers — stable addresses, documented parameters, defined return values, versioned contracts — you can identify exactly what current web UI fails to provide to automated operators. The gap is structural.
+
+## What Changes When Designers Think This Way
+
+The shift is not primarily technical. It is conceptual. When a designer begins thinking of a button as an endpoint:
+
+**Every button must have an unambiguous name.** Not a label — a name. "Save" is a label. `save-user-profile` is a name. The distinction matters because names are stable across visual redesigns and i18n translations, while labels are not. A button whose label changes from "Save" to "Update Profile" to "Confirmar" across different contexts and localizations retains the same action name: `save-user-profile`.
+
+**Every form must have a documented schema.** Not just fields with placeholders — fields with declared types, relationships, and validation contracts. A form field for email is not just a text input; it is a field with type `email`, validation rules, and a role in the form's submission contract. When the agent fills in the form, it knows what type of value each field expects.
+
+**Every page must declare its entity context.** Which record is this page about? Which user, which order, which document? Current web pages imply entity context visually — through titles, breadcrumbs, and content. Machine-operable interfaces declare it explicitly, as structured metadata attached to the page or section.
+
+## If We Thought of Buttons as API Endpoints
+
+APIs are designed with care precisely because their consumers are code, not humans. API designers ask: What does this endpoint do? What does it need? What does it return? What can go wrong? These questions are answered in the specification, not left to the consumer's inference.
+
+Web UI designers ask different questions, because their consumers have been humans: Does this button look clickable? Is the label clear? Is it in the right place? These are the right questions for the human consumer. They are the wrong questions for the machine consumer.
+
+If we thought of buttons as API endpoints, the design process would include:
+
+- Assigning a stable identifier to each action before any visual design is done
+- Documenting the preconditions for each action (what state must the system be in?)
+- Specifying the expected outcome of each action (what will change?)
+- Versioning actions when their behavior changes (so consumers can adapt)
+
+None of this is incompatible with current design practice. It is additive. The visual design process is unchanged. What changes is a parallel specification process that captures the machine-readable contract.
+
+<Callout type="tip">
+Think of `data-ai-action` as the endpoint path, `data-ai-state` as the HTTP status check before the request, and `action_completed` as the response object. The mental model maps cleanly once you make the connection.
+</Callout>
+
+## UI Documentation as API Documentation
+
+One of the most significant implications of this mental model is what it does to documentation. Today, UI documentation typically covers visual design: component appearance, spacing, color usage, interaction patterns from a human perspective.
+
+When UI is treated as a machine interface, documentation starts looking like API documentation:
+
+- Action: `save-user-profile`
+- Trigger: Click on element with `data-ai-action="save-user-profile"`
+- Preconditions: `data-ai-state` must be `idle`; form validation must pass
+- Parameters: `name` (text), `email` (email), `bio` (textarea, optional)
+- On success: `action_completed` event, `result: "success"`, profile updated in state
+- On error: `action_completed` event, `result: "error"`, `message` contains validation error
+
+This is documentation that both a human developer and an AI agent can use. It replaces ambiguity with specification.
+
+## Design Systems as Interface Specifications
+
+Design systems have evolved from style guides to component libraries to behavioral systems. The next step in that evolution is design systems as interface specifications — complete, machine-readable contracts for every interactive element in the system.
+
+A component that ships with its `data-ai-*` contract is not just a reusable visual element. It is a reusable interaction contract. Every application that uses the component inherits the contract. The agent that learns to work with the design system can work with any application built on it, because the contract is consistent across applications.
+
+This is the same leverage that gave REST APIs their power: standardized conventions made it possible to build tools, clients, and integrations that worked across the ecosystem, not just for one specific API.
+
+## Testing as Contract Verification
+
+When UI has a machine-readable contract, testing changes character. Instead of writing tests that say "find the element with class `btn-save` and click it," tests say "trigger action `save-user-profile` and verify the `action_completed` event." The test is verifying the contract, not the implementation.
+
+This is closer to how API tests work: they verify that a given request produces the expected response, not that the server is implemented in a particular way. The test is decoupled from implementation details and coupled to the behavioral contract.
+
+The practical benefit: tests become more stable. An element can be restyled, moved, and relabeled without breaking the test, as long as the contract is preserved. The only test-breaking change is a change to the contract itself — which is exactly when you want tests to break.
+
+<Callout type="note">
+This is the same insight that drove the adoption of semantic HTML over presentational HTML: structure should communicate meaning, not just appearance. `data-ai-*` attributes are semantic HTML for machine operability.
+</Callout>
+
+## The Bigger Implication
+
+The web's power came from a simple contract: URLs. Every page has an address. That one primitive — give every resource a stable, universal address — unlocked decades of innovation: search engines, bookmarks, sharing, federation, REST APIs, web scraping, browser history. The entire ecosystem of the web was built on the foundation of universal addressability.
+
+What if every action had an address too?
+
+Not just every page, but every button on every page. Every form submission. Every interaction. Give every action a stable, universal name, and the possibilities compound in the same way. AI agents that reliably navigate any application that adopts the contract. Testing tools that verify behavioral contracts rather than visual implementations. Automation that survives redesigns because it is coupled to semantics, not appearance. Audit trails that capture exactly what actions were taken, not just what page was visited.
+
+That is what UI as machine interface means. Not a technical specification — a change in how we think about what interfaces are for, and who they serve.

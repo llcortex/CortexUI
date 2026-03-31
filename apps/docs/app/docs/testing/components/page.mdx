@@ -1,0 +1,59 @@
+# Component Testing
+
+## Testing State Transitions
+
+```tsx
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { ActionButton } from '@cortexui/components';
+
+test('ActionButton transitions through states', async () => {
+  let resolveSave: () => void;
+  const savePromise = new Promise<void>(resolve => { resolveSave = resolve; });
+
+  const onAction = jest.fn(() => savePromise);
+
+  render(
+    <ActionButton
+      action="save-profile"
+      state="idle"
+      label="Save"
+      onAction={onAction}
+    />
+  );
+
+  const btn = screen.getByRole('button');
+
+  // Initial state
+  expect(btn).toHaveAttribute('data-ai-state', 'idle');
+
+  // Click → loading
+  fireEvent.click(btn);
+  expect(btn).toHaveAttribute('data-ai-state', 'loading');
+
+  // Resolve → success
+  resolveSave!();
+  await waitFor(() => {
+    expect(btn).toHaveAttribute('data-ai-state', 'success');
+  });
+});
+```
+
+## Testing data-ai-* Attributes
+
+```tsx
+test('Input has correct AI contract', () => {
+  render(
+    <Input
+      name="email"
+      type="email"
+      data-ai-id="email-field"
+      required
+    />
+  );
+
+  const input = screen.getByRole('textbox');
+  expect(input).toHaveAttribute('data-ai-role', 'field');
+  expect(input).toHaveAttribute('data-ai-field-type', 'email');
+  expect(input).toHaveAttribute('data-ai-required', 'true');
+});
+```

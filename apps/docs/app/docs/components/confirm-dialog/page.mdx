@@ -1,0 +1,120 @@
+# ConfirmDialog
+
+A confirmation modal for destructive or irreversible actions.
+
+## Overview
+
+ConfirmDialog prevents accidental destructive actions by requiring explicit confirmation. It is critical for AI agents — agents must be able to detect the modal, understand it, and choose to confirm or cancel.
+
+The dialog exposes:
+- `data-ai-role="modal"` on the container
+- `data-ai-state="expanded"` when open
+- Confirm action with `data-ai-action="confirm-{action}"`
+- Cancel action with `data-ai-action="cancel-{action}"`
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| title | `string` | required | Dialog title |
+| message | `string` | required | Explanation of what will happen |
+| confirmLabel | `string` | `'Confirm'` | Confirm button text |
+| cancelLabel | `string` | `'Cancel'` | Cancel button text |
+| onConfirm | `() => void` | required | Confirm callback |
+| onCancel | `() => void` | required | Cancel callback |
+| variant | `'danger' \| 'warning'` | `'danger'` | Visual variant |
+| isOpen | `boolean` | required | Whether dialog is shown |
+
+## AI Contract
+
+```html
+<div
+  data-ai-role="modal"
+  data-ai-id="delete-user-confirm"
+  data-ai-state="expanded"
+>
+  <h2>Delete user?</h2>
+  <p>This action cannot be undone.</p>
+
+  <button
+    data-ai-role="action"
+    data-ai-id="confirm-delete-user"
+    data-ai-action="confirm-delete-user"
+    data-ai-state="idle"
+  >
+    Delete
+  </button>
+
+  <button
+    data-ai-role="action"
+    data-ai-id="cancel-delete-user"
+    data-ai-action="cancel-delete-user"
+    data-ai-state="idle"
+  >
+    Cancel
+  </button>
+</div>
+```
+
+<Callout type="important">
+The confirm and cancel actions must use the verb-prefix pattern: `confirm-delete-user` and `cancel-delete-user`. This allows AI agents to identify them as part of a confirmation flow, not arbitrary actions.
+</Callout>
+
+## Example
+
+```tsx
+const [open, setOpen] = useState(false);
+
+const handleDelete = () => {
+  setOpen(true);
+};
+
+const handleConfirm = async () => {
+  await deleteUser(userId);
+  setOpen(false);
+};
+
+return (
+  <>
+    <ActionButton
+      action="delete-user"
+      state="idle"
+      label="Delete User"
+      onClick={handleDelete}
+    />
+    <ConfirmDialog
+      isOpen={open}
+      title="Delete user?"
+      message="This will permanently delete the user and all their data."
+      confirmLabel="Delete"
+      onConfirm={handleConfirm}
+      onCancel={() => setOpen(false)}
+      variant="danger"
+    />
+  </>
+);
+```
+
+## Accessibility
+
+- Rendered as `role="dialog"` with `aria-modal="true"`
+- Focus trapped inside dialog while open
+- Returns focus to trigger button on close
+- ESC key cancels
+
+## Anti-patterns
+
+```tsx
+// ❌ Don't use generic confirm/cancel action names
+data-ai-action="confirm"
+data-ai-action="cancel"
+
+// ✅ Always scope to the specific action
+data-ai-action="confirm-delete-user"
+data-ai-action="cancel-delete-user"
+```
+
+## Related
+
+- [Patterns: Confirmation flows](/docs/patterns/confirmation)
+- [Modal component](/docs/components/modal)

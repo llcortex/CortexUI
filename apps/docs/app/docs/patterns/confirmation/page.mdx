@@ -1,0 +1,50 @@
+# Confirmation Flows Pattern
+
+## Problem
+
+Destructive actions (delete, revoke, reset) need a confirmation step. AI agents must detect the confirmation dialog, understand it, and make a decision.
+
+Without proper annotation, agents can't reliably find the confirm/cancel buttons after a dialog appears.
+
+## Solution
+
+Use ConfirmDialog with stable, scoped action names:
+- Confirm button: `data-ai-action="confirm-{action}"`
+- Cancel button: `data-ai-action="cancel-{action}"`
+
+## The AI Flow
+
+1. Agent calls `getAvailableActions()` — sees `delete-user`
+2. Agent clicks `delete-user`
+3. Dialog opens with `data-ai-role="modal"` and `data-ai-state="expanded"`
+4. Agent calls `getAvailableActions()` again — now sees `confirm-delete-user` and `cancel-delete-user`
+5. Agent clicks the appropriate button
+
+```js
+// AI agent handling a confirmation flow
+async function deleteUser(userId) {
+  // Click delete
+  document.querySelector('[data-ai-id="delete-user"]').click();
+
+  // Wait for dialog
+  await waitFor(() => {
+    const actions = window.__CORTEX_UI__.getAvailableActions();
+    return actions.some(a => a.action === 'confirm-delete-user');
+  });
+
+  // Confirm
+  document.querySelector('[data-ai-action="confirm-delete-user"]').click();
+
+  // Verify
+  await waitForActionResult('confirm-delete-user');
+}
+```
+
+<Callout type="important">
+Never use generic names like `data-ai-action="confirm"`. Always scope to the specific operation: `confirm-delete-user`, `confirm-reset-password`. This prevents ambiguity when multiple dialogs could appear.
+</Callout>
+
+## Related
+
+- [ConfirmDialog component](/docs/components/confirm-dialog)
+- [CRUD flows](/docs/patterns/crud)

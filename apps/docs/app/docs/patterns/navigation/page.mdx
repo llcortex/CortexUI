@@ -1,0 +1,42 @@
+# Navigation Flows Pattern
+
+## Overview
+
+AI agents navigate between pages to complete multi-step tasks. CortexUI provides screen context so agents always know where they are.
+
+## How Agents Navigate
+
+```js
+// Check current screen
+const ctx = window.__CORTEX_UI__.getScreenContext();
+// { screen: "users-list", entity: "user" }
+
+// Navigate to user detail
+const navItem = document.querySelector('[data-ai-id="nav-users"]');
+navItem.click(); // or follow href
+
+// After navigation, verify
+const newCtx = window.__CORTEX_UI__.getScreenContext();
+// { screen: "user-detail", entity: "user", entityId: "user-123" }
+```
+
+## Breadcrumbs
+
+Annotate breadcrumbs as nav-items:
+
+```html
+<nav data-ai-role="section" data-ai-section="breadcrumbs">
+  <a data-ai-role="nav-item" data-ai-id="nav-home" href="/">Home</a>
+  <a data-ai-role="nav-item" data-ai-id="nav-users" href="/users">Users</a>
+  <span data-ai-role="nav-item" data-ai-state="selected">Jane Doe</span>
+</nav>
+```
+
+<Callout type="note">
+The active breadcrumb should have `data-ai-state="selected"` even if it's not clickable. This tells the agent it represents the current location.
+</Callout>
+
+## Related
+
+- [Screen awareness](/docs/concepts/screen-awareness)
+- [Navigation component](/docs/components/navigation)

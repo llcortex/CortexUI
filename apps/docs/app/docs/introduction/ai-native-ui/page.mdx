@@ -1,0 +1,258 @@
+# AI-Native UI
+
+"AI-native" has become a overused phrase. Products claim to be AI-native because they have a chatbot sidebar or an autocomplete field. CortexUI uses the term with a specific technical meaning: **an AI-native UI is one that is designed from the ground up to be reliably operable by AI agents, not just by humans.**
+
+This is an architectural definition, not a feature checklist. An interface is AI-native when its components expose stable, machine-readable contracts that allow any AI system to discover, interpret, and operate the interface without prior training on its specific DOM structure.
+
+## A Brief History
+
+The web started as a document medium — pages of text and images. Then it became interactive: forms, buttons, dynamic content. Then it became application-grade: complex workflows, real-time data, multi-step processes. At each stage, the interface evolved to better serve its human users.
+
+AI agents entered the picture much later. The first generation of web automation tools — Selenium, Puppeteer, Playwright — treated the browser as a human simulator. They clicked, typed, and navigated, targeting elements by CSS selectors or visible text. These tools worked, but they were fragile. They depended on implementation details that developers never intended to be stable contracts.
+
+The second generation added semantic awareness through ARIA. Screen reader compatibility improved. But the core problem remained: there was no concept of "this element does X" that an AI agent could reliably discover and act on.
+
+The third generation — the one CortexUI is part of — treats AI agents as first-class consumers of the interface. The interface is designed not only to look right to humans, but to declare its meaning, its available actions, and its current state to any machine that asks.
+
+## How AI Agents Interact with Web Pages Today
+
+To understand why AI-native UI matters, you need to understand how AI agents currently navigate web interfaces:
+
+### Approach 1: Visual Recognition
+
+Multimodal AI models can take screenshots and identify UI elements visually: "I can see a blue button labeled 'Submit' in the bottom right." This works for simple cases but fails for complex interactions, scrolled content, or elements that look identical but have different functions.
+
+### Approach 2: DOM Parsing
+
+Agents receive the HTML of a page and attempt to understand it structurally. They look for patterns: `<button>` elements, `<form>` elements, `<input>` fields. Without semantic context, they make educated guesses about what each element does.
+
+### Approach 3: Heuristic Targeting
+
+Tools like Playwright and Puppeteer target elements by text content, by ARIA labels, by CSS selectors, or by positional relationships in the DOM. This is the most common approach and the most fragile.
+
+<Callout type="warning">
+All three of these approaches share a fundamental flaw: they treat the interface as a puzzle to be decoded rather than a contract to be read. AI-native UI eliminates the puzzle by making the contract explicit.
+</Callout>
+
+## What an AI-Native Page Looks Like
+
+An AI-native page is visually indistinguishable from any other well-designed page. The AI-native features live in the HTML attributes — invisible to human users, essential to machine consumers.
+
+Here is a checkout form written in plain HTML (not AI-native):
+
+```html
+<!-- Traditional form: human-friendly only -->
+<form class="checkout-form" id="checkout">
+  <div class="form-group">
+    <label for="email">Email</label>
+    <input type="email" id="email" name="email" class="form-control" />
+  </div>
+  <div class="form-group">
+    <label for="card">Card Number</label>
+    <input type="text" id="card" name="card" class="form-control" />
+  </div>
+  <button type="submit" class="btn btn-primary">
+    Place Order
+  </button>
+</form>
+```
+
+An agent encountering this page must guess: What does this form do? What will happen when the button is clicked? Which entity does this relate to? The agent has no answers — only inference.
+
+Here is the same form written with CortexUI's AI-native contract:
+
+```html
+<!-- AI-native form: human-friendly + machine-readable -->
+<form
+  data-ai-id="checkout-form"
+  data-ai-role="form"
+  data-ai-action="submit-order"
+  data-ai-state="idle"
+  data-ai-screen="checkout"
+  data-ai-section="payment"
+  data-ai-entity="order"
+  data-ai-entity-id="ord_01HXYZ"
+  class="checkout-form"
+>
+  <div class="form-group">
+    <label for="email">Email</label>
+    <input
+      type="email"
+      id="email"
+      name="email"
+      data-ai-id="checkout-email"
+      data-ai-role="input"
+      data-ai-state="idle"
+      data-ai-section="payment"
+      data-ai-entity="order"
+      class="form-control"
+    />
+  </div>
+  <div class="form-group">
+    <label for="card">Card Number</label>
+    <input
+      type="text"
+      id="card"
+      name="card"
+      data-ai-id="checkout-card-number"
+      data-ai-role="input"
+      data-ai-state="idle"
+      data-ai-section="payment"
+      data-ai-entity="order"
+      class="form-control"
+    />
+  </div>
+  <button
+    type="submit"
+    data-ai-id="checkout-submit-btn"
+    data-ai-role="action"
+    data-ai-action="submit-order"
+    data-ai-state="idle"
+    data-ai-screen="checkout"
+    data-ai-section="payment"
+    class="btn btn-primary"
+  >
+    Place Order
+  </button>
+</form>
+```
+
+An agent encountering this page can answer every question without inference:
+- This form submits an order (`data-ai-action="submit-order"`)
+- The form relates to order `ord_01HXYZ` (`data-ai-entity-id`)
+- The form is currently ready to submit (`data-ai-state="idle"`)
+- The submit button is `checkout-submit-btn` and it triggers `submit-order`
+
+## The Mental Model Shift: Building for Two Audiences
+
+AI-native development requires a mental model shift. You are building for two audiences simultaneously, and both audiences deserve explicit, intentional design.
+
+**For humans**, you design: visual hierarchy, color, typography, spacing, motion, responsive behavior, error states. These are traditional UX concerns.
+
+**For machines**, you design: action identifiers, state declarations, entity relationships, screen context, section groupings. These are new UX concerns that did not exist before AI agents became first-class UI consumers.
+
+```
+Traditional UI development asks:
+  "Is this interface usable by a human?"
+
+AI-native UI development asks:
+  "Is this interface usable by any intelligent agent — human or machine?"
+```
+
+This does not mean that every interface must be fully AI-native from day one. But it does mean that building AI-native interfaces is a discipline, not an afterthought. You cannot retrofit stable AI contracts onto an interface that was designed without them any more than you can retrofit a consistent REST API onto a codebase that was written without API design in mind.
+
+## Code Comparison: Traditional vs AI-Native Button
+
+This side-by-side shows the concrete difference between a traditional button and an AI-native button built with CortexUI:
+
+```tsx
+// Traditional button (React + Tailwind)
+// Human-friendly. Machine-opaque.
+function SubmitButton({ isLoading }: { isLoading: boolean }) {
+  return (
+    <button
+      type="submit"
+      disabled={isLoading}
+      className={`px-4 py-2 rounded bg-blue-600 text-white
+        ${isLoading ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"}`}
+    >
+      {isLoading ? "Saving..." : "Save Changes"}
+    </button>
+  );
+}
+```
+
+```tsx
+// AI-native button (CortexUI ActionButton)
+// Human-friendly. Machine-readable. Both by design.
+function SubmitButton({ isLoading, entityId }: {
+  isLoading: boolean;
+  entityId: string;
+}) {
+  return (
+    <ActionButton
+      aiId="profile-save-btn"
+      action="save-profile"
+      aiState={isLoading ? "loading" : "idle"}
+      aiScreen="settings"
+      aiSection="profile-form"
+      aiEntity="user"
+      aiEntityId={entityId}
+      type="submit"
+      disabled={isLoading}
+      variant="primary"
+    >
+      {isLoading ? "Saving..." : "Save Changes"}
+    </ActionButton>
+  );
+}
+```
+
+The visible output is identical. The human sees the same button in both cases. The difference lives in the HTML attributes — and in the design discipline that put them there.
+
+## What AI Agents Can Do with AI-Native UI
+
+When your interface is AI-native, an AI agent can do the following reliably, without being trained specifically on your application:
+
+### Discover available actions
+
+```tsx
+const actions = window.__CORTEX_UI__.getAvailableActions();
+// Returns every action currently available, grouped by screen and section
+```
+
+### Query by intent
+
+```tsx
+const saveButton = window.__CORTEX_UI__.getAction("save-profile");
+// Returns the element, its current state, its entity context
+// Works regardless of what the button text currently says
+```
+
+### Observe state changes
+
+```tsx
+window.__CORTEX_UI__.onStateChange("profile-save-btn", (newState) => {
+  if (newState === "loading") {
+    // Agent knows: save is in progress, do not trigger again
+  }
+  if (newState === "success") {
+    // Agent knows: save completed, can proceed to next action
+  }
+});
+```
+
+### Understand entity context
+
+```tsx
+const orderContext = window.__CORTEX_UI__.getEntityContext("order");
+// Returns: all elements related to the current order entity,
+// the entity ID, and what actions are available on it
+```
+
+### Navigate by screen
+
+```tsx
+const checkoutElements = window.__CORTEX_UI__.getElementsByScreen("checkout");
+// Returns all interactive elements on the checkout screen
+// regardless of how they are visually arranged
+```
+
+These capabilities transform AI-UI interaction from "brittle DOM scraping" to "reliable contract consumption." The agent is reading a published API, not reverse-engineering an implementation.
+
+<Callout type="tip">
+If you have built REST APIs before, think of the `data-ai-*` attribute system as the API specification for your UI. Just as a well-documented REST API lets any HTTP client interact reliably with your backend, a well-specified UI contract lets any AI agent interact reliably with your frontend.
+</Callout>
+
+## Summary
+
+AI-native UI is not a feature — it is a design discipline. It means deliberately designing interfaces that serve two audiences: humans who interact visually, and AI agents that interact programmatically. CortexUI is the first design system built around this discipline, providing the component APIs, the semantic attribute system, and the runtime inspection layer that make AI-native development practical.
+
+Building AI-native interfaces today is optional. In three years, it will be expected.
+
+## Next Steps
+
+- [CortexUI vs traditional design systems](/docs/introduction/comparison)
+- [Get started with installation](/docs/getting-started/installation)
+- [Set up your first project](/docs/getting-started/project-setup)
+- [Build your first AI-native component](/docs/getting-started/first-component)

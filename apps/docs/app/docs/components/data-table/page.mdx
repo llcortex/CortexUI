@@ -1,0 +1,108 @@
+# DataTable
+
+An AI-aware data table that exposes row-level entity context and actions.
+
+## Overview
+
+DataTable renders tabular data with full AI contract support. Each row is annotated with the entity it represents, and row-level actions (edit, delete, view) are marked with `data-ai-role="action"`.
+
+AI agents can:
+- Identify the entity type and ID of each row
+- Discover row-level actions
+- Track table state (loading, empty, populated)
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| columns | `Column[]` | required | Column definitions |
+| rows | `Row[]` | required | Row data |
+| entityType | `string` | required | e.g. `'user'`, `'order'` |
+| onRowAction | `(action: string, rowId: string) => void` | — | Row action handler |
+| loading | `boolean` | `false` | Show loading state |
+| empty | `ReactNode` | — | Empty state content |
+
+## AI Contract
+
+```html
+<table data-ai-role="table" data-ai-id="users-table">
+  <tbody>
+    <tr
+      data-ai-entity="user"
+      data-ai-entity-id="user-42"
+    >
+      <td>Jane Doe</td>
+      <td>jane@example.com</td>
+      <td>
+        <button
+          data-ai-role="action"
+          data-ai-id="edit-user-42"
+          data-ai-action="edit-user"
+          data-ai-state="idle"
+        >Edit</button>
+        <button
+          data-ai-role="action"
+          data-ai-id="delete-user-42"
+          data-ai-action="delete-user"
+          data-ai-state="idle"
+        >Delete</button>
+      </td>
+    </tr>
+  </tbody>
+</table>
+```
+
+<Callout type="important">
+Include the entity ID in each row action's `data-ai-id` to make row-level actions uniquely targetable: `edit-user-42`, not just `edit-user`.
+</Callout>
+
+## States
+
+**Loading:**
+```tsx
+<DataTable loading columns={columns} rows={[]} entityType="user" />
+```
+
+**Empty:**
+```tsx
+<DataTable
+  columns={columns}
+  rows={[]}
+  entityType="user"
+  empty={<p>No users found. <a href="/users/new">Create one</a>.</p>}
+/>
+```
+
+**With data:**
+```tsx
+<DataTable
+  columns={columns}
+  rows={users}
+  entityType="user"
+  onRowAction={(action, id) => {
+    if (action === 'edit-user') navigate(`/users/${id}/edit`);
+    if (action === 'delete-user') openDeleteDialog(id);
+  }}
+/>
+```
+
+## Accessibility
+
+- Uses semantic `<table>`, `<thead>`, `<tbody>`, `<th scope="col">`
+- Sortable columns announce sort direction via `aria-sort`
+- Row actions are focusable buttons
+
+## Anti-patterns
+
+```tsx
+// ❌ Don't omit entityType — AI can't understand what's in the table
+<DataTable columns={columns} rows={data} />
+
+// ✅ Always specify entityType
+<DataTable columns={columns} rows={data} entityType="order" />
+```
+
+## Related
+
+- [Patterns: CRUD flows](/docs/patterns/crud)
+- [Entity modeling](/docs/ai-contract/entity-modeling)

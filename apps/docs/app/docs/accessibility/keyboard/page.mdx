@@ -1,0 +1,31 @@
+# Keyboard Navigation
+
+## Overview
+
+CortexUI components are fully keyboard navigable. This benefits both human users and AI agents that interact via keyboard simulation.
+
+## Key Bindings by Component
+
+| Component | Keys |
+|---|---|
+| ActionButton | Enter, Space to activate |
+| Input | Tab to focus, type |
+| Select | Enter/Space to open, Arrow to navigate, Enter to select |
+| Tabs | Tab to tabs area, Arrow keys to switch tabs |
+| Modal | Tab cycles within, ESC to close |
+| ConfirmDialog | Tab between confirm/cancel, Enter to activate, ESC to cancel |
+
+## Focus Management
+
+CortexUI handles focus automatically:
+- Modal: focuses first element inside on open
+- Dialog: returns focus to trigger on close
+- Toast/Banner: does not steal focus
+
+<Callout type="tip">
+Use keyboard navigation paths when scripting AI agent tests. `data-ai-id` selectors combined with keyboard events are more reliable than coordinate clicking.
+</Callout>
+
+## Tab Order
+
+Elements receive focus in DOM order by default. CortexUI does not use `tabindex > 0` — this would break natural tab order.

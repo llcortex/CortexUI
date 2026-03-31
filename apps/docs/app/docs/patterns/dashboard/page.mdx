@@ -1,0 +1,58 @@
+# Dashboard Layouts Pattern
+
+## Overview
+
+Dashboards are complex — they mix multiple entity types, metrics, actions, and sections. Proper section annotation is critical.
+
+## Full Annotation Example
+
+```html
+<div data-ai-screen="analytics-dashboard">
+
+  <section data-ai-section="summary-metrics">
+    <div data-ai-role="status" data-ai-id="total-users-metric" data-ai-state="idle">
+      <span>Total Users</span>
+      <span>1,234</span>
+    </div>
+    <div data-ai-role="status" data-ai-id="active-sessions-metric" data-ai-state="idle">
+      <span>Active Sessions</span>
+      <span>42</span>
+    </div>
+  </section>
+
+  <section data-ai-section="recent-activity" data-ai-entity="activity-log">
+    <table data-ai-role="table" data-ai-id="activity-table">
+      <tbody>
+        <tr data-ai-entity="activity" data-ai-entity-id="activity-1">
+          <td>Jane logged in</td>
+          <td>2 min ago</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section data-ai-section="quick-actions">
+    <button data-ai-role="action" data-ai-id="export-report" data-ai-action="export-report" data-ai-state="idle">
+      Export Report
+    </button>
+    <button data-ai-role="action" data-ai-id="invite-user" data-ai-action="invite-user" data-ai-state="idle">
+      Invite User
+    </button>
+  </section>
+
+</div>
+```
+
+<Callout type="tip">
+Metric/KPI widgets should use `data-ai-role="status"` — they are read-only indicators of state. Quick action buttons use `data-ai-role="action"`.
+</Callout>
+
+## How AI Reads a Dashboard
+
+```js
+const ctx = window.__CORTEX_UI__.getScreenContext();
+// { screen: "analytics-dashboard", sections: ["summary-metrics", "recent-activity", "quick-actions"] }
+
+const actions = window.__CORTEX_UI__.getAvailableActions();
+// [{ id: "export-report", action: "export-report" }, { id: "invite-user", action: "invite-user" }]
+```

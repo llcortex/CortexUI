@@ -1,0 +1,43 @@
+# Stack
+
+A flexbox layout primitive for arranging elements in a row or column.
+
+## Purpose
+
+Stack eliminates the need to write flexbox CSS for common layout patterns. It's the workhorse of spacing in CortexUI.
+
+## Usage
+
+```tsx
+import { Stack } from '@cortexui/primitives';
+
+// Vertical stack (default)
+<Stack gap="16px">
+  <Input name="first-name" />
+  <Input name="last-name" />
+  <ActionButton action="save" state="idle" label="Save" />
+</Stack>
+
+// Horizontal stack
+<Stack direction="horizontal" gap="8px" align="center">
+  <Avatar src={user.avatar} />
+  <Text>{user.name}</Text>
+</Stack>
+
+// Responsive
+<Stack direction={{ base: 'vertical', md: 'horizontal' }} gap="24px">
+  <Sidebar />
+  <Content />
+</Stack>
+```
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| direction | `'vertical' \| 'horizontal'` | `'vertical'` | Stack direction |
+| gap | `string` | `'0'` | Space between items |
+| align | `CSSProperties['alignItems']` | `'stretch'` | Cross-axis alignment |
+| justify | `CSSProperties['justifyContent']` | `'flex-start'` | Main-axis alignment |
+| wrap | `boolean` | `false` | Allow wrapping |
+| as | `keyof JSX.IntrinsicElements` | `'div'` | HTML element |

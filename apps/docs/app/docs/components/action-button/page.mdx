@@ -1,0 +1,365 @@
+# ActionButton
+
+The primary interactive element in CortexUI. ActionButton is not just a button — it is a stateful, machine-readable action trigger that declares its identity, its operation, and its current state to both human users and AI agents simultaneously.
+
+## Overview
+
+Use ActionButton whenever you need a user-facing trigger that initiates an operation. It is the correct choice for form submissions, data mutations, navigation triggers, and any action that has a meaningful machine state lifecycle.
+
+**Key features:**
+
+- Declares a stable `action` identifier that AI agents can target deterministically
+- Exposes machine state (`idle`, `loading`, `success`, `error`, `disabled`) as a DOM attribute
+- Handles the loading and disabled states visually and semantically
+- Prevents double-submission automatically when in `loading` state
+- Supports `primary`, `secondary`, and `danger` variants
+
+<Callout type="important">
+ActionButton is the canonical way to trigger operations in CortexUI. Do not use plain `<button>` elements for operations that AI agents need to identify or that have async state lifecycles. An unwrapped button has no AI contract.
+</Callout>
+
+## Anatomy
+
+An ActionButton renders a single `<button>` element with two complete layers:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ActionButton                                               │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  <button>                                           │   │
+│  │    Visual layer: variant styles, loading spinner,   │   │
+│  │                  disabled opacity                   │   │
+│  │    Semantic layer: data-ai-role, data-ai-action,    │   │
+│  │                    data-ai-state, data-ai-id        │   │
+│  │                                                     │   │
+│  │    [ label text or loading indicator ]              │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Parts:
+
+- **Root element** — a native `<button>` with all ARIA and semantic attributes applied
+- **Label** — the visible text content passed as `label` or `children`
+- **Loading indicator** — rendered automatically when `state="loading"`
+- **Semantic contract** — `data-ai-*` attributes always present on the root element
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `action` | `string` | — **(required)** | The logical operation identifier. Used as `data-ai-action` and `data-ai-id`. Must be unique within a screen. |
+| `state` | `"idle" \| "loading" \| "success" \| "error" \| "disabled"` | — **(required)** | The current machine state of the action. Drives both visual rendering and the `data-ai-state` attribute. |
+| `label` | `string` | `undefined` | The button's visible text label. If omitted, renders `children`. |
+| `variant` | `"primary" \| "secondary" \| "danger"` | `"primary"` | Controls visual styling. `danger` renders in a destructive color and implies a high-risk action. |
+| `disabled` | `boolean` | `false` | Disables the button. When `true`, also sets `state` to `"disabled"` in the semantic layer. |
+| `loading` | `boolean` | `false` | Shorthand for `state="loading"`. |
+| `onAction` | `() => void` | `undefined` | Callback fired when the button is clicked and not in a loading or disabled state. |
+| `children` | `ReactNode` | `undefined` | Alternative to `label` for custom button content. |
+
+## AI Contract
+
+ActionButton publishes the following `data-ai-*` attributes on every render:
+
+| Attribute | Value | Purpose |
+|---|---|---|
+| `data-ai-role` | `"action"` | Declares this element as an action trigger. Agents filter by this to find all clickable operations. |
+| `data-ai-action` | Value of the `action` prop | Names the logical operation. Agents use this to find the right trigger by operation name. |
+| `data-ai-state` | Current value of the `state` prop | Exposes machine state. Agents check this before deciding to click — they will not trigger a `loading` or `disabled` button. |
+| `data-ai-id` | Value of the `action` prop | Stable unique identifier for this specific element. |
+
+**Rendered example:**
+
+```html
+<button
+  data-ai-role="action"
+  data-ai-action="save-profile"
+  data-ai-state="idle"
+  data-ai-id="save-profile"
+  class="btn btn-primary"
+>
+  Save Profile
+</button>
+```
+
+**During loading:**
+
+```html
+<button
+  data-ai-role="action"
+  data-ai-action="save-profile"
+  data-ai-state="loading"
+  data-ai-id="save-profile"
+  class="btn btn-primary btn-loading"
+  disabled
+>
+  Save Profile
+</button>
+```
+
+An AI agent waiting for an async operation to complete can observe the `data-ai-state` attribute transition from `loading` to `success` or `error` without any visual parsing.
+
+## States
+
+### idle
+
+The default resting state. The button is ready to be activated.
+
+```tsx
+<ActionButton
+  action="save-profile"
+  state="idle"
+  label="Save Profile"
+  onAction={handleSave}
+/>
+```
+
+### loading
+
+The operation is in progress. The button renders a loading indicator and is non-interactive.
+
+```tsx
+<ActionButton
+  action="save-profile"
+  state="loading"
+  label="Save Profile"
+/>
+```
+
+### success
+
+The operation completed successfully. Typically shown briefly before resetting to `idle`.
+
+```tsx
+<ActionButton
+  action="save-profile"
+  state="success"
+  label="Save Profile"
+/>
+```
+
+### error
+
+The operation failed. The button typically resets to `idle` after a short delay or on user interaction.
+
+```tsx
+<ActionButton
+  action="save-profile"
+  state="error"
+  label="Save Profile"
+/>
+```
+
+### disabled
+
+The action is not available in the current context. Visually dimmed and non-interactive.
+
+```tsx
+<ActionButton
+  action="save-profile"
+  state="disabled"
+  label="Save Profile"
+  disabled
+/>
+```
+
+### State progression
+
+The typical lifecycle of an async action:
+
+```tsx
+function SaveProfileButton() {
+  const [state, setState] = useState<ActionState>("idle");
+
+  async function handleSave() {
+    setState("loading");
+    try {
+      await api.saveProfile(profileData);
+      setState("success");
+      // Reset to idle after 2s
+      setTimeout(() => setState("idle"), 2000);
+    } catch (err) {
+      setState("error");
+      setTimeout(() => setState("idle"), 3000);
+    }
+  }
+
+  return (
+    <ActionButton
+      action="save-profile"
+      state={state}
+      label="Save Profile"
+      onAction={handleSave}
+    />
+  );
+}
+```
+
+This state progression is machine-observable. An AI agent watching the DOM sees:
+`idle` → `loading` → `success` → `idle`
+
+## Examples
+
+### Primary form submission
+
+```tsx
+function CheckoutForm() {
+  const [submitState, setSubmitState] = useState<ActionState>("idle");
+
+  async function handleSubmit() {
+    setSubmitState("loading");
+    try {
+      await api.submitOrder(cart);
+      setSubmitState("success");
+    } catch {
+      setSubmitState("error");
+    }
+  }
+
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+      {/* form fields */}
+      <ActionButton
+        action="submit-order"
+        state={submitState}
+        label="Place Order"
+        variant="primary"
+        onAction={handleSubmit}
+      />
+    </form>
+  );
+}
+```
+
+### Destructive action with danger variant
+
+```tsx
+<ActionButton
+  action="delete-account"
+  state={deleteState}
+  label="Delete Account"
+  variant="danger"
+  onAction={handleDeleteAccount}
+/>
+```
+
+### Secondary action
+
+```tsx
+<ActionButton
+  action="export-report"
+  state={exportState}
+  label="Export CSV"
+  variant="secondary"
+  onAction={handleExport}
+/>
+```
+
+### Multiple actions in the same view
+
+```tsx
+<Stack direction="horizontal" gap={2}>
+  <ActionButton
+    action="save-draft"
+    state={draftState}
+    label="Save Draft"
+    variant="secondary"
+    onAction={saveDraft}
+  />
+  <ActionButton
+    action="publish-post"
+    state={publishState}
+    label="Publish"
+    variant="primary"
+    onAction={publishPost}
+  />
+</Stack>
+```
+
+Both buttons are individually queryable by an AI agent using their `action` identifiers: `"save-draft"` and `"publish-post"`.
+
+### Conditionally disabled
+
+```tsx
+<ActionButton
+  action="submit-order"
+  state={cartIsEmpty ? "disabled" : submitState}
+  label="Place Order"
+  disabled={cartIsEmpty}
+  onAction={handleSubmit}
+/>
+```
+
+## Accessibility
+
+- Renders as a native `<button>` element — keyboard accessible by default
+- `Enter` and `Space` activate the button, consistent with browser native behavior
+- When `state="loading"` or `disabled`, the button has the `disabled` HTML attribute, preventing activation via keyboard
+- Use `aria-label` via the `label` prop when the button text alone is ambiguous (e.g., an icon-only button)
+- The `data-ai-state` attribute does not affect ARIA semantics — it is a parallel layer
+
+<Callout type="note">
+ActionButton is built on top of `ButtonBase`, which handles all keyboard interaction, focus management, and ARIA attribute wiring. You do not need to add ARIA manually.
+</Callout>
+
+## Anti-patterns
+
+### Using a div instead of button
+
+```tsx
+// WRONG: A div has no keyboard accessibility and no semantic role
+<div
+  className="btn btn-primary"
+  onClick={handleSave}
+>
+  Save
+</div>
+
+// RIGHT: Use ActionButton, which renders a real <button>
+<ActionButton action="save" state="idle" label="Save" onAction={handleSave} />
+```
+
+### Not providing a state
+
+```tsx
+// WRONG: state is required. Omitting it breaks the AI contract.
+<ActionButton action="save" label="Save" onAction={handleSave} />
+
+// RIGHT: Always pass the current state explicitly
+<ActionButton action="save" state={saveState} label="Save" onAction={handleSave} />
+```
+
+### Using a button for navigation
+
+```tsx
+// WRONG: Navigation is not an action — use a link
+<ActionButton action="go-to-profile" state="idle" label="Profile" onAction={() => router.push("/profile")} />
+
+// RIGHT: Use a link element or NavigationItem for navigation
+<a href="/profile">Profile</a>
+```
+
+### Hardcoding loading state
+
+```tsx
+// WRONG: state is static — the AI contract never updates
+<ActionButton action="save" state="loading" label="Save" />
+
+// RIGHT: Derive state from actual async operation status
+const [state, setState] = useState<ActionState>("idle");
+<ActionButton action="save" state={state} label="Save" onAction={handleSave} />
+```
+
+### Reusing action identifiers across screens
+
+```tsx
+// WRONG: Two different "submit" buttons with the same action on different screens
+// are fine, but two buttons on the same screen should have distinct actions.
+<ActionButton action="submit" state="idle" label="Save Draft" />
+<ActionButton action="submit" state="idle" label="Publish" />
+
+// RIGHT: Each distinct operation gets a distinct action identifier
+<ActionButton action="save-draft" state={draftState} label="Save Draft" />
+<ActionButton action="publish-post" state={publishState} label="Publish" />
+```

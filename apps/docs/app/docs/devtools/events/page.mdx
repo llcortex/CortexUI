@@ -1,0 +1,38 @@
+# Event Logs
+
+## Using getRecentEvents() for Debugging
+
+```js
+// After doing something in the UI:
+const events = window.__CORTEX_UI__.getRecentEvents();
+console.table(events);
+```
+
+## Filtering Events
+
+```js
+const events = window.__CORTEX_UI__.getRecentEvents();
+
+// Just failures
+const failures = events.filter(e => e.type === 'action_failed');
+
+// Events for a specific action
+const saveEvents = events.filter(e => e.actionId === 'save-profile');
+```
+
+## Diagnosing Agent Failures
+
+If an AI agent reports an action failed, check:
+
+```js
+const recentFailures = window.__CORTEX_UI__.getRecentEvents()
+  .filter(e => e.type === 'action_failed');
+
+recentFailures.forEach(e => {
+  console.log(`Action ${e.actionId} failed: ${e.message}`);
+});
+```
+
+<Callout type="note">
+The event log is capped at the 100 most recent events. For longer sessions, events are evicted FIFO.
+</Callout>

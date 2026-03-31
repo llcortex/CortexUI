@@ -1,0 +1,335 @@
+# Your First Component
+
+This tutorial walks you through building a simple but complete AI-native button with CortexUI. By the end you will have a working component, understand the required props, and know how to verify the AI contract using DevTools and the runtime API.
+
+## Prerequisites
+
+Before you start, make sure you have completed:
+- [Installation](/docs/getting-started/installation)
+- [Project Setup](/docs/getting-started/project-setup) — your app must be wrapped with `CortexProvider`
+
+## The Component We Are Building
+
+We will build a "Save Profile" button that:
+1. Renders correctly for human users (styled, accessible)
+2. Exposes a complete AI contract (machine-readable attributes)
+3. Transitions through states (idle → loading → success)
+4. Is queryable and triggerable via the runtime API
+
+## Step 1: Import ActionButton
+
+`ActionButton` is the core interactive component in CortexUI. It renders a button with the full AI semantic layer built in.
+
+```tsx
+import { ActionButton } from "@cortexui/components";
+```
+
+## Step 2: Understanding the Required Props
+
+Every `ActionButton` requires three props to form a valid AI contract:
+
+| Prop | Type | Description |
+|---|---|---|
+| `aiId` | `string` | Stable unique identifier for this element. Must be unique per screen. |
+| `action` | `string` | The logical action this button triggers. Used for agent queries. |
+| `aiState` | `AIState` | Current machine state: `"idle"`, `"loading"`, `"success"`, `"error"`, `"disabled"` |
+
+These three props together form the minimal contract. Without them, the component cannot participate in the semantic layer.
+
+```tsx
+// Minimal valid ActionButton
+<ActionButton
+  aiId="save-profile-btn"
+  action="save-profile"
+  aiState="idle"
+>
+  Save Profile
+</ActionButton>
+```
+
+## Step 3: Adding Full Context
+
+For a more complete contract, add screen and entity context. These are not strictly required for the component to render, but they make the contract significantly more useful to agents:
+
+```tsx
+<ActionButton
+  aiId="save-profile-btn"
+  action="save-profile"
+  aiState="idle"
+  aiScreen="settings"
+  aiSection="profile-form"
+  aiEntity="user"
+  aiEntityId={userId}
+>
+  Save Profile
+</ActionButton>
+```
+
+## Step 4: Adding State Management
+
+The AI contract is only useful if it reflects actual component state. Connect `aiState` to your component's real state:
+
+```tsx
+import { useState } from "react";
+import { ActionButton } from "@cortexui/components";
+import type { AIState } from "@cortexui/ai-contract";
+
+function SaveProfileButton({ userId }: { userId: string }) {
+  const [saveState, setSaveState] = useState<AIState>("idle");
+
+  async function handleSave() {
+    setSaveState("loading");
+    try {
+      await api.saveProfile(userId, profileData);
+      setSaveState("success");
+      // Reset to idle after showing success
+      setTimeout(() => setSaveState("idle"), 2000);
+    } catch (error) {
+      setSaveState("error");
+    }
+  }
+
+  return (
+    <ActionButton
+      aiId="save-profile-btn"
+      action="save-profile"
+      aiState={saveState}
+      aiScreen="settings"
+      aiSection="profile-form"
+      aiEntity="user"
+      aiEntityId={userId}
+      onClick={handleSave}
+      disabled={saveState === "loading"}
+    >
+      {saveState === "loading" ? "Saving..." : "Save Profile"}
+    </ActionButton>
+  );
+}
+```
+
+<Callout type="note">
+Notice that `aiState` and `disabled` are separate. `disabled` controls the HTML `disabled` attribute (whether the button can be clicked). `aiState` communicates the semantic machine state to the AI layer. When `aiState="loading"`, an AI agent knows it should wait — not just that the button is unavailable.
+</Callout>
+
+## Step 5: Adding to a Page
+
+Add the component to a page that has screen context set:
+
+```tsx
+// app/settings/page.tsx (Next.js App Router)
+"use client";
+
+import { ScreenProvider, SectionProvider } from "@cortexui/runtime";
+import { SaveProfileButton } from "./SaveProfileButton";
+
+export default function SettingsPage() {
+  const userId = "usr_01HXYZ"; // from auth session
+
+  return (
+    <ScreenProvider screen="settings">
+      <h1>Settings</h1>
+      <SectionProvider section="profile-form">
+        <form>
+          {/* form fields... */}
+          <SaveProfileButton userId={userId} />
+        </form>
+      </SectionProvider>
+    </ScreenProvider>
+  );
+}
+```
+
+## Step 6: Inspecting with DevTools
+
+Start your development server and navigate to the settings page. Open your browser DevTools (F12 or Cmd+Option+I) and select the Elements panel.
+
+Click on the "Save Profile" button in the browser, or use the element picker to select it. In the Elements panel, you should see:
+
+```html
+<button
+  data-ai-id="save-profile-btn"
+  data-ai-role="action"
+  data-ai-action="save-profile"
+  data-ai-state="idle"
+  data-ai-screen="settings"
+  data-ai-section="profile-form"
+  data-ai-entity="user"
+  data-ai-entity-id="usr_01HXYZ"
+  class="cortex-btn cortex-btn--primary"
+  type="button"
+>
+  Save Profile
+</button>
+```
+
+Click the button to trigger a save. Watch the `data-ai-state` attribute change from `"idle"` to `"loading"` and back to `"success"` in real time in the Elements panel. This is the live AI contract responding to state changes.
+
+## Step 7: Verifying with the Runtime API
+
+Open the browser Console tab. The runtime API lets you query and interact with the AI contract programmatically — exactly as an AI agent would.
+
+### List all available actions
+
+```javascript
+window.__CORTEX_UI__.getAvailableActions()
+```
+
+Expected output:
+
+```javascript
+[
+  {
+    id: "save-profile-btn",
+    action: "save-profile",
+    state: "idle",
+    screen: "settings",
+    section: "profile-form",
+    entity: "user",
+    entityId: "usr_01HXYZ",
+    element: <button>
+  }
+]
+```
+
+### Get a specific action by name
+
+```javascript
+window.__CORTEX_UI__.getAction("save-profile")
+```
+
+Expected output:
+
+```javascript
+{
+  id: "save-profile-btn",
+  action: "save-profile",
+  state: "idle",
+  element: <button>
+}
+```
+
+### Trigger the action programmatically
+
+```javascript
+window.__CORTEX_UI__.trigger("save-profile")
+// This is exactly what an AI agent does — no CSS selectors, no text matching
+```
+
+### Observe state changes
+
+```javascript
+window.__CORTEX_UI__.onStateChange("save-profile-btn", (event) => {
+  console.log(`State changed: ${event.previousState} → ${event.newState}`);
+});
+```
+
+Now click the save button and watch the console log state transitions.
+
+## The Complete Working Example
+
+Here is the full, working implementation in a single file for reference:
+
+```tsx
+// components/SaveProfileButton.tsx
+"use client";
+
+import { useState } from "react";
+import { ActionButton } from "@cortexui/components";
+import type { AIState } from "@cortexui/ai-contract";
+
+interface SaveProfileButtonProps {
+  userId: string;
+  onSave: (userId: string) => Promise<void>;
+}
+
+export function SaveProfileButton({ userId, onSave }: SaveProfileButtonProps) {
+  const [saveState, setSaveState] = useState<AIState>("idle");
+
+  async function handleSave() {
+    if (saveState === "loading") return; // Prevent double-submit
+
+    setSaveState("loading");
+    try {
+      await onSave(userId);
+      setSaveState("success");
+      setTimeout(() => setSaveState("idle"), 2000);
+    } catch (error) {
+      setSaveState("error");
+    }
+  }
+
+  const label = {
+    idle: "Save Profile",
+    loading: "Saving...",
+    success: "Saved!",
+    error: "Save Failed",
+    disabled: "Save Profile",
+  }[saveState];
+
+  return (
+    <ActionButton
+      aiId="save-profile-btn"
+      action="save-profile"
+      aiState={saveState}
+      aiScreen="settings"
+      aiSection="profile-form"
+      aiEntity="user"
+      aiEntityId={userId}
+      onClick={handleSave}
+      disabled={saveState === "loading" || saveState === "disabled"}
+      variant={saveState === "error" ? "destructive" : "primary"}
+    >
+      {label}
+    </ActionButton>
+  );
+}
+```
+
+```tsx
+// app/settings/page.tsx
+"use client";
+
+import { ScreenProvider, SectionProvider } from "@cortexui/runtime";
+import { SaveProfileButton } from "@/components/SaveProfileButton";
+
+async function saveProfile(userId: string) {
+  const res = await fetch(`/api/users/${userId}/profile`, { method: "PUT" });
+  if (!res.ok) throw new Error("Save failed");
+}
+
+export default function SettingsPage() {
+  const userId = "usr_01HXYZ"; // from your auth solution
+
+  return (
+    <ScreenProvider screen="settings">
+      <main>
+        <h1>Settings</h1>
+        <SectionProvider section="profile-form">
+          <form onSubmit={(e) => e.preventDefault()}>
+            {/* your form fields */}
+            <SaveProfileButton userId={userId} onSave={saveProfile} />
+          </form>
+        </SectionProvider>
+      </main>
+    </ScreenProvider>
+  );
+}
+```
+
+<Callout type="tip">
+You have now built your first AI-native component. It looks and behaves exactly like a traditional button to your users — but it exposes a complete, stable, machine-readable contract that any AI agent, automation tool, or testing framework can rely on without fragile heuristics.
+</Callout>
+
+## What You Have Learned
+
+- How to use `ActionButton` with its three required props: `aiId`, `action`, `aiState`
+- How to connect `aiState` to real component state for live contract reflection
+- How to add screen, section, and entity context for a complete contract
+- How to inspect the contract in DevTools and see it update in real time
+- How to use `window.__CORTEX_UI__` to query and trigger actions programmatically
+
+## Next Steps
+
+- [React integration patterns and the useAIState hook](/docs/getting-started/react)
+- [Vanilla JS integration](/docs/getting-started/vanilla-js)
+- [CortexUI philosophy](/docs/introduction/philosophy)

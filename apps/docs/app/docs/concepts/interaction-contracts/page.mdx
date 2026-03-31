@@ -1,0 +1,308 @@
+# Interaction Contracts
+
+An interaction contract is the complete specification of what a UI element is, what it can do, how it changes, and what it emits. It is the formal agreement between a CortexUI component and anything that interacts with it — whether that is a human, an AI agent, or an automated test.
+
+## What a Contract Is
+
+Every meaningful UI element has a contract composed of four parts:
+
+1. **Identity** — who is this element? (`data-ai-id`, `data-ai-role`)
+2. **Action** — what does triggering it do? (`data-ai-action`)
+3. **State** — what condition is it in right now? (`data-ai-state`)
+4. **Events** — what does it emit when triggered? (event payloads)
+
+A button without all four parts has an *incomplete* contract. It may look right visually, but it cannot be operated reliably by agents or tested deterministically.
+
+```html
+<!-- Complete contract -->
+<button
+  data-ai-role="action"          <!-- Role: this is an action -->
+  data-ai-id="save-profile"      <!-- Identity: this specific element -->
+  data-ai-action="save-profile"  <!-- Action: what it does -->
+  data-ai-state="idle"           <!-- State: ready for interaction -->
+>
+  Save Profile
+</button>
+```
+
+## How Contracts Compose
+
+Contracts compose hierarchically. A screen contract contains section contracts. A section contract contains form contracts. A form contract contains field contracts and an action contract.
+
+```
+screen: user-profile
+  ├── entity: user / user-abc
+  ├── section: profile-form
+  │     ├── form: edit-profile-form
+  │     │     ├── field: name-field (text, required)
+  │     │     ├── field: email-field (email, required)
+  │     │     ├── field: phone-field (tel, optional)
+  │     │     └── action: save-profile (idle)
+  │     └── action: cancel-edit (idle)
+  └── section: danger-zone
+        └── action: delete-account (idle)
+```
+
+Composition means context. An agent that encounters `save-profile` knows it operates on user `user-abc` (from the entity context), within the `profile-form` section (from the section context), on the `user-profile` screen (from the screen context). The contract at each level contributes to the full picture.
+
+## Event Contracts: What Fires, When, with What Payload
+
+Every action has an event contract — the set of events it promises to emit at each stage of its lifecycle:
+
+### action_triggered
+
+Emitted synchronously when the element is activated.
+
+```json
+{
+  "type": "action_triggered",
+  "payload": {
+    "actionId": "save-profile",
+    "action": "save-profile",
+    "section": "profile-form",
+    "screen": "user-profile"
+  }
+}
+```
+
+### action_completed
+
+Emitted when the async operation resolves successfully.
+
+```json
+{
+  "type": "action_completed",
+  "payload": {
+    "actionId": "save-profile",
+    "action": "save-profile",
+    "result": "success",
+    "durationMs": 1240
+  }
+}
+```
+
+### action_failed
+
+Emitted when the async operation rejects.
+
+```json
+{
+  "type": "action_failed",
+  "payload": {
+    "actionId": "save-profile",
+    "action": "save-profile",
+    "error": "validation-failed",
+    "durationMs": 42
+  }
+}
+```
+
+These three events together form the event contract for any action. Any action that does not emit all three at the appropriate moments has a broken event contract.
+
+## Contract Validation
+
+Contracts can be validated programmatically using the `@cortexui/testing` package:
+
+```ts
+import { validateAIContract, getContractReport } from "@cortexui/testing";
+
+// Validate all elements on the page
+const report = await validateAIContract();
+
+/*
+{
+  "valid": false,
+  "errors": [
+    {
+      "element": "[data-ai-id='update-btn']",
+      "rule": "action-name-format",
+      "message": "data-ai-action 'update_btn' must use verb-noun kebab-case"
+    }
+  ],
+  "warnings": [
+    {
+      "element": "form[data-ai-id='edit-form']",
+      "rule": "form-has-fields",
+      "message": "Form has no annotated fields (data-ai-role='field')"
+    }
+  ]
+}
+*/
+```
+
+You can also validate a specific element's contract:
+
+```ts
+const elementReport = await getContractReport('[data-ai-id="save-profile"]');
+
+/*
+{
+  "elementId": "save-profile",
+  "role": "action",
+  "action": "save-profile",
+  "state": "idle",
+  "valid": true,
+  "composedContext": {
+    "screen": "user-profile",
+    "entity": "user",
+    "entityId": "user-abc",
+    "section": "profile-form",
+    "form": "edit-profile-form"
+  }
+}
+*/
+```
+
+<Callout type="note">
+Contract validation is a static analysis of the DOM. It checks attribute presence, naming conventions, and structural relationships — but it cannot verify that state updates synchronously or that events are emitted correctly. Those behaviors require runtime integration tests.
+</Callout>
+
+## Example: A Complete Order Creation Flow
+
+Here is a complete multi-screen order creation flow with contracts at each step:
+
+### Step 1: Product Selection Screen
+
+```
+screen: product-list
+contracts:
+  - action: add-to-cart (on each product row)
+  - action: view-cart
+event flow:
+  add-to-cart → action_triggered → action_completed
+```
+
+```html
+<div data-ai-screen="product-list">
+  <section data-ai-section="product-grid">
+    <div data-ai-entity="product" data-ai-entity-id="prod-001">
+      <button
+        data-ai-role="action"
+        data-ai-id="add-to-cart-prod-001"
+        data-ai-action="add-to-cart"
+        data-ai-state="idle"
+      >Add to Cart</button>
+    </div>
+  </section>
+</div>
+```
+
+### Step 2: Cart Screen
+
+```
+screen: cart
+entity: cart / cart-session-xyz
+contracts:
+  - action: update-quantity (per item)
+  - action: remove-item (per item)
+  - action: proceed-to-checkout
+event flow:
+  proceed-to-checkout → action_triggered → action_completed → [navigate to checkout-shipping]
+```
+
+```html
+<div data-ai-screen="cart" data-ai-entity="cart" data-ai-entity-id="cart-session-xyz">
+  <section data-ai-section="cart-items">
+    <div data-ai-entity="cart-item" data-ai-entity-id="ci-001">
+      <input data-ai-role="field" data-ai-id="quantity-ci-001" data-ai-field-type="number" data-ai-required="true" />
+      <button data-ai-role="action" data-ai-id="remove-ci-001" data-ai-action="remove-item" data-ai-state="idle">Remove</button>
+    </div>
+  </section>
+  <section data-ai-section="cart-actions">
+    <button data-ai-role="action" data-ai-id="proceed-to-checkout" data-ai-action="proceed-to-checkout" data-ai-state="idle">
+      Proceed to Checkout
+    </button>
+  </section>
+</div>
+```
+
+### Step 3: Shipping Screen
+
+```
+screen: checkout-shipping
+contracts:
+  - form: shipping-form (name, address, city, postal-code, country)
+  - action: save-shipping
+event flow:
+  form_submitted → save-shipping → action_triggered → action_completed → [navigate to checkout-payment]
+```
+
+```html
+<div data-ai-screen="checkout-shipping">
+  <section data-ai-section="shipping-form">
+    <form data-ai-role="form" data-ai-id="shipping-form">
+      <input data-ai-role="field" data-ai-id="shipping-name" data-ai-field-type="text" data-ai-required="true" name="name" />
+      <input data-ai-role="field" data-ai-id="shipping-address" data-ai-field-type="text" data-ai-required="true" name="address" />
+      <input data-ai-role="field" data-ai-id="shipping-city" data-ai-field-type="text" data-ai-required="true" name="city" />
+      <input data-ai-role="field" data-ai-id="shipping-postal" data-ai-field-type="text" data-ai-required="true" name="postalCode" />
+      <select data-ai-role="field" data-ai-id="shipping-country" data-ai-field-type="select" data-ai-required="true" name="country">
+        <option value="US">United States</option>
+        <option value="CA">Canada</option>
+        <option value="GB">United Kingdom</option>
+      </select>
+      <button data-ai-role="action" data-ai-id="save-shipping" data-ai-action="save-shipping" data-ai-state="idle" type="submit">
+        Continue to Payment
+      </button>
+    </form>
+  </section>
+</div>
+```
+
+### Step 4: Payment Screen
+
+```
+screen: checkout-payment
+contracts:
+  - form: payment-form (card-number, expiry, cvv)
+  - action: submit-order
+event flow:
+  form_submitted → submit-order → action_triggered → action_completed → [navigate to order-confirmation]
+```
+
+### Step 5: Order Confirmation Screen
+
+```
+screen: order-confirmation
+entity: order / ord-{new-id}
+contracts:
+  - action: view-order-detail
+  - action: continue-shopping
+```
+
+## Breaking vs. Fulfilling Contracts
+
+A contract is **fulfilled** when:
+- All required attributes are present and correctly formatted
+- State transitions happen synchronously
+- Events are emitted at the correct lifecycle moments
+- The element behaves as its role implies
+
+A contract is **broken** when:
+- Required attributes are missing
+- State is updated after a delay or not at all
+- Events are not emitted on operation completion
+- An element is annotated as `role="action"` but does not respond to click events
+
+### Consequences of Breaking Contracts
+
+| Broken Contract | Consequence |
+|---|---|
+| Missing data-ai-state | Agent cannot determine if action is available |
+| State not updated synchronously | Agent sees stale state and makes wrong decisions |
+| Missing action_completed event | Agent waits indefinitely, times out |
+| Inconsistent action names | Agent's stored plan no longer works |
+| Missing entity context | Agent acts on wrong record |
+| Form without annotated fields | Agent cannot fill the form |
+
+<Callout type="important">
+A broken contract does not produce a visible UI error. The button still clicks. The form still submits. The breakage is silent from the user's perspective — but catastrophic from the agent's. Contract testing is the only way to catch these failures before they reach production.
+</Callout>
+
+## Related
+
+- [data-ai-* attributes](/docs/ai-contract/attributes)
+- [Actions reference](/docs/ai-contract/actions)
+- [Events reference](/docs/ai-contract/events)
+- [Screen awareness](/docs/concepts/screen-awareness)
+- [Testing](/docs/testing)
+- [Best practices](/docs/ai-contract/best-practices)

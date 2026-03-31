@@ -1,0 +1,39 @@
+# Text
+
+A typography primitive for rendering text with semantic HTML.
+
+## Purpose
+
+Text ensures the right HTML element is used for each type of text, maintaining semantic correctness while providing a consistent API.
+
+## Usage
+
+```tsx
+import { Text } from '@cortexui/primitives';
+
+// Paragraph
+<Text>This renders a <p> element.</Text>
+
+// Label
+<Text as="label" htmlFor="name-input" size="sm" weight="medium">
+  Full name
+</Text>
+
+// Caption
+<Text as="span" size="xs" color="muted">
+  Last updated 2 minutes ago
+</Text>
+```
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| as | `'p' \| 'span' \| 'label' \| 'strong' \| 'em'` | `'p'` | HTML element |
+| size | `'xs' \| 'sm' \| 'base' \| 'lg' \| 'xl'` | `'base'` | Font size |
+| weight | `'normal' \| 'medium' \| 'semibold' \| 'bold'` | `'normal'` | Font weight |
+| color | `'default' \| 'muted' \| 'error' \| 'success'` | `'default'` | Text color |
+
+<Callout type="note">
+Text does not add data-ai-* attributes. If a piece of text is a status indicator, wrap it in StatusBanner instead.
+</Callout>

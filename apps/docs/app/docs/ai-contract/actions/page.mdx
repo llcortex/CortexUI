@@ -1,0 +1,248 @@
+# Actions
+
+Actions are the callable intents of your UI. They are the things a user — or an AI agent — can *do* on a screen. Every button, link, or trigger that produces an effect is an action in the AI contract.
+
+## What Actions Are
+
+In traditional UI thinking, a button is a visual element. In CortexUI's AI contract, a button is a declaration: "this is something you can do here." Actions expose the operational vocabulary of your application in a machine-readable form.
+
+An action has five properties in the contract:
+
+- **id** (`data-ai-id`) — which specific DOM element this is
+- **action** (`data-ai-action`) — what doing it means (the intent)
+- **state** (`data-ai-state`) — is it available right now?
+- **result** (`data-ai-result`) — what happened last time it was triggered?
+- **section** (inherited from ancestor) — where on the screen does it live?
+
+## Naming Convention: Verb-Noun
+
+The `data-ai-action` value names the intent. It must be a verb-noun pair in kebab-case. This is non-negotiable — it is the convention that allows AI agents and development tools to build consistent action catalogs.
+
+```
+save-profile        ✓   verb: save,   noun: profile
+delete-account      ✓   verb: delete, noun: account
+submit-order        ✓   verb: submit, noun: order
+create-user         ✓   verb: create, noun: user
+update-avatar       ✓   verb: update, noun: avatar
+export-csv          ✓   verb: export, noun: csv
+resend-invitation   ✓   verb: resend, noun: invitation
+
+profile             ✗   no verb
+btn-save            ✗   not semantic
+doTheSave           ✗   camelCase, no noun
+handle_submit       ✗   snake_case, implementation detail
+```
+
+### Common Action Vocabulary
+
+Use these verbs consistently across your application:
+
+| Verb | Use for |
+|---|---|
+| save | Persisting form edits |
+| create | Adding a new record |
+| delete | Removing a record permanently |
+| archive | Soft-removing a record |
+| submit | Finalizing a transactional form |
+| update | Modifying a specific field or property |
+| export | Generating a downloadable file |
+| import | Uploading external data |
+| resend | Re-triggering a notification |
+| confirm | Approving a pending action |
+| cancel | Aborting an in-progress flow |
+| open | Expanding a modal or panel |
+| close | Collapsing a modal or panel |
+| navigate | Moving to a different screen |
+| filter | Applying a data filter |
+| search | Querying for records |
+
+<Callout type="important">
+Action names must be consistent across your entire application. If the profile save button is "save-profile" on one screen, it cannot be "update-profile" on another. Inconsistent naming breaks agent plans that reference actions by name.
+</Callout>
+
+## The Action Lifecycle
+
+Every action follows the same state machine:
+
+```
+[idle] --triggered--> [loading] --resolved--> [success]
+                               --rejected---> [error]
+[success] --reset--> [idle]
+[error] --reset--> [idle]
+[idle] --condition false--> [disabled]
+[disabled] --condition true--> [idle]
+```
+
+### State Transitions in Code
+
+```tsx
+function useSaveProfile() {
+  const [state, setState] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [result, setResult] = useState<string | null>(null);
+
+  async function save(data: ProfileData) {
+    setState("loading");   // synchronous — before the await
+    setResult(null);
+
+    try {
+      await profileApi.save(data);
+      setState("success");
+      setResult("success");
+    } catch (err) {
+      setState("error");
+      setResult(err instanceof ApiError ? err.code : "unknown-error");
+    }
+  }
+
+  function reset() {
+    setState("idle");
+    setResult(null);
+  }
+
+  return { state, result, save, reset };
+}
+
+// In the component
+const { state, result, save, reset } = useSaveProfile();
+
+<button
+  data-ai-role="action"
+  data-ai-id="save-profile"
+  data-ai-action="save-profile"
+  data-ai-state={state}
+  data-ai-result={result ?? undefined}
+  disabled={state === "loading" || state === "disabled"}
+  onClick={() => save(formData)}
+>
+  {state === "loading" ? "Saving..." : "Save Profile"}
+</button>
+```
+
+## Action Scoping
+
+Actions inherit scope from their ancestor `data-ai-section`. This means `getAvailableActions()` can return actions grouped by where on the screen they live.
+
+```html
+<div data-ai-screen="user-profile" data-ai-entity="user" data-ai-entity-id="user-123">
+
+  <section data-ai-section="profile-info">
+    <button data-ai-role="action" data-ai-id="update-avatar" data-ai-action="update-avatar" data-ai-state="idle">
+      Update Avatar
+    </button>
+  </section>
+
+  <section data-ai-section="profile-form">
+    <button data-ai-role="action" data-ai-id="save-profile" data-ai-action="save-profile" data-ai-state="idle">
+      Save Profile
+    </button>
+  </section>
+
+  <section data-ai-section="danger-zone">
+    <button data-ai-role="action" data-ai-id="delete-account" data-ai-action="delete-account" data-ai-state="idle">
+      Delete Account
+    </button>
+  </section>
+
+</div>
+```
+
+## Example: CRM User Profile Page
+
+A complete CRM user profile page might expose the following action catalog:
+
+| Section | data-ai-id | data-ai-action | Purpose |
+|---|---|---|---|
+| profile-info | update-avatar | update-avatar | Change profile picture |
+| profile-form | save-profile | save-profile | Save name, email, phone |
+| profile-form | cancel-edit | cancel-edit | Discard form changes |
+| role-settings | assign-role | assign-role | Change user's role |
+| role-settings | remove-role | remove-role | Revoke current role |
+| account-status | suspend-account | suspend-account | Temporarily disable account |
+| account-status | reactivate-account | reactivate-account | Re-enable suspended account |
+| audit-log | export-audit-log | export-csv | Download activity log |
+| danger-zone | delete-account | delete-account | Permanently delete user |
+| danger-zone | resend-invitation | resend-invitation | Re-send email invite |
+
+```html
+<div data-ai-screen="user-profile" data-ai-entity="user" data-ai-entity-id="user-abc">
+
+  <section data-ai-section="profile-info">
+    <button data-ai-role="action" data-ai-id="update-avatar" data-ai-action="update-avatar" data-ai-state="idle">
+      Update Avatar
+    </button>
+  </section>
+
+  <section data-ai-section="profile-form">
+    <form data-ai-role="form" data-ai-id="edit-profile-form">
+      <!-- fields -->
+      <button data-ai-role="action" data-ai-id="save-profile" data-ai-action="save-profile" data-ai-state="idle">
+        Save
+      </button>
+      <button data-ai-role="action" data-ai-id="cancel-edit" data-ai-action="cancel-edit" data-ai-state="idle" type="button">
+        Cancel
+      </button>
+    </form>
+  </section>
+
+  <section data-ai-section="danger-zone">
+    <button data-ai-role="action" data-ai-id="delete-account" data-ai-action="delete-account" data-ai-state="idle">
+      Delete Account
+    </button>
+    <button data-ai-role="action" data-ai-id="resend-invitation" data-ai-action="resend-invitation" data-ai-state="idle">
+      Resend Invitation
+    </button>
+  </section>
+
+</div>
+```
+
+## How Agents Discover Actions
+
+AI agents use `getAvailableActions()` to enumerate all actions currently accessible on the screen:
+
+```js
+const actions = window.__CORTEX_UI__.getAvailableActions();
+
+/*
+[
+  {
+    id: "update-avatar",
+    action: "update-avatar",
+    state: "idle",
+    section: "profile-info"
+  },
+  {
+    id: "save-profile",
+    action: "save-profile",
+    state: "idle",
+    section: "profile-form"
+  },
+  {
+    id: "cancel-edit",
+    action: "cancel-edit",
+    state: "idle",
+    section: "profile-form"
+  },
+  {
+    id: "delete-account",
+    action: "delete-account",
+    state: "disabled",
+    section: "danger-zone"
+  }
+]
+*/
+```
+
+The agent checks this list before deciding which action to take. It filters by state (`idle` actions are available; `disabled` or `loading` ones are not), then selects the matching `action` value and triggers it.
+
+<Callout type="note">
+getAvailableActions() returns only the actions currently visible in the DOM with the correct data-ai-role="action" attribute. Actions inside closed modals or collapsed sections will not appear until those containers are expanded.
+</Callout>
+
+## Related
+
+- [data-ai-* attributes](/docs/ai-contract/attributes)
+- [States reference](/docs/ai-contract/states)
+- [Events reference](/docs/ai-contract/events)
+- [Action-driven design concept](/docs/concepts/action-driven)
+- [Best practices](/docs/ai-contract/best-practices)

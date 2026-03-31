@@ -1,0 +1,107 @@
+# Forms Pattern
+
+## Problem
+
+AI agents can't reliably fill forms without knowing their schema. Traditional forms are collections of visually-labelled inputs — the AI must guess which input is which from label text and proximity.
+
+## Solution
+
+Annotate every form with a complete AI contract. CortexUI's FormField and Input components do this automatically. The runtime exposes the schema via `getFormSchema()`.
+
+## Create Form Pattern
+
+```tsx
+function CreateUserForm() {
+  const [state, setState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+  const handleSubmit = async (data: FormData) => {
+    setState('loading');
+    try {
+      await createUser(data);
+      setState('success');
+    } catch {
+      setState('error');
+    }
+  };
+
+  return (
+    <div data-ai-screen="create-user" data-ai-entity="user">
+      <section data-ai-section="create-form">
+        <form
+          data-ai-role="form"
+          data-ai-id="create-user-form"
+          onSubmit={handleSubmit}
+        >
+          <FormField label="Full name" name="name" required>
+            <Input
+              name="name"
+              data-ai-role="field"
+              data-ai-id="name-field"
+              data-ai-field-type="text"
+              data-ai-required="true"
+            />
+          </FormField>
+
+          <FormField label="Email" name="email" required>
+            <Input
+              type="email"
+              name="email"
+              data-ai-role="field"
+              data-ai-id="email-field"
+              data-ai-field-type="email"
+              data-ai-required="true"
+            />
+          </FormField>
+
+          <ActionButton
+            action="create-user"
+            state={state}
+            label="Create User"
+            type="submit"
+          />
+        </form>
+
+        {state === 'success' && (
+          <StatusBanner
+            type="success"
+            data-ai-id="create-result"
+            message="User created successfully."
+          />
+        )}
+      </section>
+    </div>
+  );
+}
+```
+
+## The AI Flow
+
+```js
+// Agent filling the create user form
+const schema = window.__CORTEX_UI__.getFormSchema('create-user-form');
+// Fill each field...
+// Click create-user action...
+// Wait for action_completed event...
+const events = window.__CORTEX_UI__.getRecentEvents();
+const success = events.find(e => e.actionId === 'create-user' && e.type === 'action_completed');
+```
+
+<Callout type="tip">
+Always wrap forms in a `data-ai-section` so agents know the form's context within the page.
+</Callout>
+
+## Edit Form Pattern
+
+Edit forms are identical to create forms but pre-populated. The entity context is critical:
+
+```html
+<div data-ai-screen="edit-user" data-ai-entity="user" data-ai-entity-id="user-123">
+```
+
+This tells the agent it is editing a specific entity, not creating a new one.
+
+## Related
+
+- [Form schema](/docs/ai-contract/form-schema)
+- [ActionButton](/docs/components/action-button)
+- [getFormSchema()](/docs/runtime/get-form-schema)

@@ -1,0 +1,529 @@
+# Vanilla JS Integration
+
+CortexUI's AI contract does not require React. You can use the semantic layer — the `data-ai-*` attribute system, the runtime API, and the contract types — with plain JavaScript, server-rendered HTML, or any other framework.
+
+This guide covers:
+- How to manually add `data-ai-*` attributes
+- Installing and initializing the runtime script
+- Using the runtime API in plain JS
+- A complete vanilla JS form with full AI contract
+
+<Callout type="note">
+The React component library (`@cortexui/components`) does require React. This guide is for the framework-agnostic layer: `@cortexui/ai-contract` (the type definitions and utilities) and `@cortexui/runtime` (the runtime inspection API). These work in any JS environment.
+</Callout>
+
+## Why Vanilla JS?
+
+You might use the CortexUI AI contract without React if:
+- Your application uses a server-rendered framework (Rails, Django, Laravel, Hugo)
+- You are incrementally adding AI contract support to an existing codebase
+- You are using a non-React JS framework (Vue, Svelte, Angular, Alpine.js)
+- You want to annotate server-rendered HTML for AI agent consumption
+
+In all of these cases, the `data-ai-*` attributes can be added directly to your HTML, and the runtime script can be loaded as a regular `<script>` tag.
+
+## Manually Adding data-ai-* Attributes
+
+The simplest way to add an AI contract to any element is to set `data-ai-*` attributes directly in your HTML:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>My Application</title>
+</head>
+<body>
+  <main
+    data-ai-screen="dashboard"
+  >
+    <section
+      data-ai-section="user-actions"
+    >
+      <button
+        data-ai-id="create-report-btn"
+        data-ai-role="action"
+        data-ai-action="create-report"
+        data-ai-state="idle"
+        data-ai-entity="report"
+      >
+        Create Report
+      </button>
+
+      <button
+        data-ai-id="export-data-btn"
+        data-ai-role="action"
+        data-ai-action="export-data"
+        data-ai-state="idle"
+        data-ai-entity="report"
+      >
+        Export Data
+      </button>
+    </section>
+  </main>
+</body>
+</html>
+```
+
+The attributes alone — without any JavaScript — make your HTML readable to agents that can parse DOM structure. But to unlock the full runtime API (discovery, triggering, state observation), you need the runtime script.
+
+## Installing the Runtime Script
+
+### Via npm (bundled)
+
+If you are using a bundler (Webpack, Vite, Parcel, esbuild):
+
+```bash
+npm install @cortexui/runtime
+```
+
+Then import and initialize in your JavaScript entry point:
+
+```javascript
+// main.js or index.js
+import { initCortexRuntime } from "@cortexui/runtime/vanilla";
+
+// Initialize once, as early as possible
+initCortexRuntime({
+  debug: process.env.NODE_ENV === "development",
+});
+```
+
+This installs `window.__CORTEX_UI__` and begins observing the DOM.
+
+### Via CDN (no bundler)
+
+For server-rendered applications or projects without a bundler:
+
+```html
+<head>
+  <!-- Load the runtime before any interactive content -->
+  <script
+    src="https://unpkg.com/@cortexui/runtime@latest/dist/runtime.umd.js"
+    defer
+  ></script>
+  <script>
+    // Initialize after the script loads
+    document.addEventListener("DOMContentLoaded", function () {
+      CortexRuntime.init({ debug: false });
+    });
+  </script>
+</head>
+```
+
+### Via a `<script>` tag (self-hosted)
+
+Download the runtime script and host it yourself:
+
+```html
+<script src="/assets/cortex-runtime.umd.js"></script>
+<script>
+  CortexRuntime.init({
+    debug: window.location.hostname === "localhost",
+  });
+</script>
+```
+
+## Runtime Initialization Options
+
+```javascript
+initCortexRuntime({
+  // Enable verbose console logging (default: false)
+  debug: false,
+
+  // Root element to observe (default: document.body)
+  root: document.getElementById("app"),
+
+  // Default screen name for elements without data-ai-screen
+  defaultScreen: "app",
+
+  // Called when any element's data-ai-state changes
+  onStateChange: function (event) {
+    console.log(event.aiId, event.previousState, "→", event.newState);
+  },
+
+  // Called when a new element with data-ai-id is added to the DOM
+  onElementRegistered: function (contract) {
+    console.log("Registered:", contract.aiId);
+  },
+
+  // Called when an element with data-ai-id is removed from the DOM
+  onElementUnregistered: function (aiId) {
+    console.log("Unregistered:", aiId);
+  },
+});
+```
+
+## Using the Runtime API in Plain JS
+
+Once the runtime is initialized, `window.__CORTEX_UI__` provides the full inspection API:
+
+### Discovering Actions
+
+```javascript
+// Get all currently available actions
+const actions = window.__CORTEX_UI__.getAvailableActions();
+console.log(actions);
+// [
+//   { id: "create-report-btn", action: "create-report", state: "idle", screen: "dashboard" },
+//   { id: "export-data-btn", action: "export-data", state: "idle", screen: "dashboard" },
+// ]
+
+// Get actions on a specific screen
+const dashboardActions = window.__CORTEX_UI__.getElementsByScreen("dashboard");
+
+// Get a specific action by action name
+const createAction = window.__CORTEX_UI__.getAction("create-report");
+```
+
+### Reading State
+
+```javascript
+// Get an element's contract by its aiId
+const element = window.__CORTEX_UI__.getElementByAiId("create-report-btn");
+console.log(element.state); // "idle"
+
+// Get entity context
+const reportContext = window.__CORTEX_UI__.getEntityContext("report");
+console.log(reportContext); // All elements related to "report" entity
+```
+
+### Triggering Actions
+
+```javascript
+// Trigger an action by its action name (simulates a click)
+window.__CORTEX_UI__.trigger("create-report");
+
+// Trigger by aiId
+window.__CORTEX_UI__.triggerById("create-report-btn");
+```
+
+### Observing State Changes
+
+```javascript
+// Watch a specific element for state changes
+const unsubscribe = window.__CORTEX_UI__.onStateChange(
+  "create-report-btn",
+  function (event) {
+    console.log("State changed:", event.previousState, "→", event.newState);
+
+    if (event.newState === "loading") {
+      // Report creation in progress
+      showProgressIndicator();
+    }
+
+    if (event.newState === "success") {
+      // Report created successfully
+      hideProgressIndicator();
+      showSuccessMessage();
+    }
+  }
+);
+
+// Later, clean up the listener
+unsubscribe();
+
+// Watch ALL state changes
+window.__CORTEX_UI__.onAnyStateChange(function (event) {
+  analytics.track("ui_state_change", {
+    elementId: event.aiId,
+    action: event.action,
+    from: event.previousState,
+    to: event.newState,
+  });
+});
+```
+
+## Updating State from JavaScript
+
+When your JavaScript code changes an element's state, update the `data-ai-state` attribute directly. The runtime observes this change and notifies any listeners:
+
+```javascript
+async function handleCreateReport(button) {
+  // Update state to loading
+  button.setAttribute("data-ai-state", "loading");
+  button.disabled = true;
+
+  try {
+    const report = await api.createReport(reportData);
+
+    // Update state to success
+    button.setAttribute("data-ai-state", "success");
+    button.textContent = "Report Created!";
+
+    // Reset after a moment
+    setTimeout(() => {
+      button.setAttribute("data-ai-state", "idle");
+      button.disabled = false;
+      button.textContent = "Create Report";
+    }, 2000);
+  } catch (error) {
+    // Update state to error
+    button.setAttribute("data-ai-state", "error");
+    button.disabled = false;
+  }
+}
+
+document
+  .querySelector('[data-ai-id="create-report-btn"]')
+  .addEventListener("click", function () {
+    handleCreateReport(this);
+  });
+```
+
+## Complete Vanilla JS Form Example
+
+Here is a complete, working HTML page with a contact form that has a full AI contract:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact Us</title>
+  <script src="/assets/cortex-runtime.umd.js"></script>
+  <style>
+    /* your styles here */
+    form { max-width: 480px; margin: 2rem auto; }
+    label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+    input, textarea { width: 100%; padding: 0.5rem; margin-bottom: 1rem; }
+    button { padding: 0.75rem 1.5rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .error { color: #dc2626; font-size: 0.875rem; margin-top: -0.75rem; margin-bottom: 0.75rem; }
+  </style>
+</head>
+<body data-ai-screen="contact">
+  <main>
+    <h1>Contact Us</h1>
+
+    <form
+      id="contact-form"
+      data-ai-id="contact-form"
+      data-ai-role="form"
+      data-ai-action="submit-contact"
+      data-ai-state="idle"
+      data-ai-entity="contact-request"
+      novalidate
+    >
+      <div data-ai-section="contact-fields">
+        <div>
+          <label for="contact-name">Your Name</label>
+          <input
+            type="text"
+            id="contact-name"
+            name="name"
+            data-ai-id="contact-name-field"
+            data-ai-role="input"
+            data-ai-state="idle"
+            data-ai-entity="contact-request"
+            required
+          />
+          <div class="error" id="name-error" hidden></div>
+        </div>
+
+        <div>
+          <label for="contact-email">Email Address</label>
+          <input
+            type="email"
+            id="contact-email"
+            name="email"
+            data-ai-id="contact-email-field"
+            data-ai-role="input"
+            data-ai-state="idle"
+            data-ai-entity="contact-request"
+            required
+          />
+          <div class="error" id="email-error" hidden></div>
+        </div>
+
+        <div>
+          <label for="contact-message">Message</label>
+          <textarea
+            id="contact-message"
+            name="message"
+            data-ai-id="contact-message-field"
+            data-ai-role="input"
+            data-ai-state="idle"
+            data-ai-entity="contact-request"
+            rows="5"
+            required
+          ></textarea>
+          <div class="error" id="message-error" hidden></div>
+        </div>
+      </div>
+
+      <button
+        type="submit"
+        data-ai-id="contact-submit-btn"
+        data-ai-role="action"
+        data-ai-action="submit-contact"
+        data-ai-state="idle"
+        data-ai-entity="contact-request"
+      >
+        Send Message
+      </button>
+    </form>
+  </main>
+
+  <script>
+    // Initialize the CortexUI runtime
+    document.addEventListener("DOMContentLoaded", function () {
+      CortexRuntime.init({ debug: true });
+
+      const form = document.getElementById("contact-form");
+      const submitBtn = document.querySelector('[data-ai-id="contact-submit-btn"]');
+
+      form.addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        const name = document.getElementById("contact-name").value;
+        const email = document.getElementById("contact-email").value;
+        const message = document.getElementById("contact-message").value;
+
+        // Validate
+        let hasErrors = false;
+        if (!name.trim()) {
+          showError("name-error", "Name is required");
+          setFieldState("contact-name-field", "error");
+          hasErrors = true;
+        }
+        if (!email.trim() || !email.includes("@")) {
+          showError("email-error", "Valid email required");
+          setFieldState("contact-email-field", "error");
+          hasErrors = true;
+        }
+        if (!message.trim()) {
+          showError("message-error", "Message is required");
+          setFieldState("contact-message-field", "error");
+          hasErrors = true;
+        }
+
+        if (hasErrors) return;
+
+        // Set loading state on both the form and the button
+        setFormState("loading");
+        setButtonState("loading");
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Sending...";
+
+        try {
+          await fetch("/api/contact", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email, message }),
+          });
+
+          setFormState("success");
+          setButtonState("success");
+          submitBtn.textContent = "Message Sent!";
+
+          setTimeout(() => {
+            form.reset();
+            setFormState("idle");
+            setButtonState("idle");
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Send Message";
+          }, 3000);
+        } catch (err) {
+          setFormState("error");
+          setButtonState("error");
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Send Message";
+          showError("message-error", "Failed to send. Please try again.");
+        }
+      });
+
+      function setFormState(state) {
+        form.setAttribute("data-ai-state", state);
+      }
+
+      function setButtonState(state) {
+        submitBtn.setAttribute("data-ai-state", state);
+      }
+
+      function setFieldState(aiId, state) {
+        const el = document.querySelector(`[data-ai-id="${aiId}"]`);
+        if (el) el.setAttribute("data-ai-state", state);
+      }
+
+      function showError(errorId, message) {
+        const el = document.getElementById(errorId);
+        if (el) {
+          el.textContent = message;
+          el.hidden = false;
+        }
+      }
+    });
+  </script>
+</body>
+</html>
+```
+
+<Callout type="tip">
+Even without React, the AI contract in this form is complete. An agent can discover the form via `window.__CORTEX_UI__.getAction("submit-contact")`, fill the fields by targeting their `data-ai-id` values, submit by triggering the action, and observe the `data-ai-state` transition from `"loading"` to `"success"` — all without any knowledge of the page's CSS or DOM structure.
+</Callout>
+
+## Using with Non-React Frameworks
+
+### Vue.js
+
+```vue
+<template>
+  <button
+    :data-ai-id="aiId"
+    data-ai-role="action"
+    :data-ai-action="action"
+    :data-ai-state="aiState"
+    :disabled="aiState === 'loading'"
+    @click="handleClick"
+  >
+    <slot />
+  </button>
+</template>
+
+<script setup>
+import { ref } from "vue";
+
+const props = defineProps(["aiId", "action", "onAction"]);
+const aiState = ref("idle");
+
+async function handleClick() {
+  aiState.value = "loading";
+  try {
+    await props.onAction();
+    aiState.value = "success";
+    setTimeout(() => { aiState.value = "idle"; }, 2000);
+  } catch {
+    aiState.value = "error";
+  }
+}
+</script>
+```
+
+### Alpine.js
+
+```html
+<button
+  data-ai-id="submit-form-btn"
+  data-ai-role="action"
+  data-ai-action="submit-form"
+  :data-ai-state="state"
+  x-data="{ state: 'idle' }"
+  :disabled="state === 'loading'"
+  @click="
+    state = 'loading';
+    fetch('/api/submit', { method: 'POST' })
+      .then(() => { state = 'success'; setTimeout(() => state = 'idle', 2000); })
+      .catch(() => { state = 'error'; });
+  "
+>
+  Submit
+</button>
+```
+
+## Next Steps
+
+- [React integration guide](/docs/getting-started/react)
+- [Your first component](/docs/getting-started/first-component)
+- [CortexUI philosophy](/docs/introduction/philosophy)
+- [What is CortexUI](/docs/introduction/what-is-cortexui)

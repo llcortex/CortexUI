@@ -1,0 +1,163 @@
+# CortexUI vs Traditional Design Systems
+
+Design systems exist on a spectrum. At one end, you have pure visual systems: tokens, colors, typography scales. At the other end, you have full interaction frameworks. CortexUI occupies a new position on this spectrum — one that includes everything traditional design systems provide and adds a semantic layer that none of them have designed for.
+
+This page gives you an honest, detailed comparison so you can make an informed choice.
+
+## Feature Comparison
+
+| Feature | Traditional Systems | CortexUI |
+|---|---|---|
+| **Pre-built components** | ✅ Extensive | ✅ Full library |
+| **Visual theming & tokens** | ✅ Yes | ✅ Yes |
+| **Responsive design** | ✅ Yes | ✅ Yes |
+| **Accessibility (ARIA)** | ✅ Yes | ✅ Yes + AI layer |
+| **TypeScript support** | ✅ Yes | ✅ Yes |
+| **Machine-readable attributes** | ❌ None | ✅ Full `data-ai-*` system |
+| **Stable action identifiers** | ❌ No | ✅ `data-ai-id` + `data-ai-action` |
+| **Explicit state exposure** | Partial (ARIA `aria-disabled`, etc.) | ✅ Explicit `data-ai-state` |
+| **Entity relationship tracking** | ❌ No | ✅ `data-ai-entity` + `data-ai-entity-id` |
+| **Screen & section context** | ❌ No | ✅ `data-ai-screen` + `data-ai-section` |
+| **Runtime inspection API** | ❌ No | ✅ `window.__CORTEX_UI__` |
+| **AI agent compatibility** | ❌ Heuristic only | ✅ Deterministic |
+| **Browser automation stability** | ❌ CSS-selector dependent | ✅ Stable semantic targets |
+| **Action discovery API** | ❌ No | ✅ `getAvailableActions()` |
+| **State observation API** | ❌ No | ✅ `onStateChange()` |
+
+## System-by-System Analysis
+
+### Chakra UI
+
+Chakra UI is an excellent developer experience story. It provides a well-designed set of accessible components, a powerful theming system, and strong TypeScript support. If your primary goal is building human-facing UIs quickly with good accessibility and a clean API, Chakra is a strong choice.
+
+**What Chakra does not have:** any concept of machine-readable action contracts. There is no `data-ai-*` attribute system. There is no runtime API. Automation and AI features built on top of Chakra must target CSS class names or text content — both of which are implementation details that change.
+
+```tsx
+// Chakra UI button — excellent for humans
+<Button colorScheme="blue" onClick={handleSave}>
+  Save Changes
+</Button>
+// Rendered: <button class="chakra-button css-1abc23">Save Changes</button>
+// An agent must guess: is this the right button? What does it do?
+```
+
+### Material UI (MUI)
+
+Material UI is one of the most widely deployed design systems in the world. It has a vast component library, deep theming support, and follows Material Design specifications closely. It is a mature, production-proven choice.
+
+**What MUI does not have:** a semantic layer for AI agents. MUI adds ARIA attributes for accessibility, but ARIA describes roles and states for screen readers — not action identifiers and entity relationships for AI systems. An AI agent navigating an MUI form has the same problem as one navigating a plain HTML form.
+
+```tsx
+// MUI button — excellent for humans and screen readers
+<Button variant="contained" onClick={handleSubmit}>
+  Submit Order
+</Button>
+// ARIA: role="button" — tells screen reader it's a button
+// Missing: what action does clicking this perform?
+//          what entity does it operate on?
+//          what is its current machine state?
+```
+
+### Radix UI
+
+Radix UI provides unstyled, accessible primitives with exceptional keyboard navigation and ARIA implementation. It is the closest existing system to CortexUI's accessibility philosophy — "get the semantics right, let the visual layer be customizable."
+
+Radix is where CortexUI's philosophy most resonates, but even Radix does not go far enough. Accessibility semantics (ARIA) and AI agent semantics (`data-ai-*`) are different problems. Radix solves the former thoroughly. CortexUI solves both.
+
+```tsx
+// Radix UI — excellent primitives, strong ARIA
+<Dialog.Root>
+  <Dialog.Trigger asChild>
+    <button>Open Settings</button>
+  </Dialog.Trigger>
+  <Dialog.Content>
+    {/* accessible dialog content */}
+  </Dialog.Content>
+</Dialog.Root>
+// Great for: screen readers, keyboard navigation, focus management
+// Missing: data-ai-id, data-ai-action, data-ai-state for agent consumption
+```
+
+### Headless UI (Tailwind)
+
+Headless UI provides unstyled accessible components from the Tailwind team. It handles focus management, keyboard interaction, and ARIA. Like Radix, it is excellent at accessibility without imposing visual opinions.
+
+The same gap applies: Headless UI solves the human accessibility problem, not the AI agent interoperability problem.
+
+<Callout type="note">
+The gap between existing design systems and CortexUI is not about component quality or visual design. Every system listed here provides excellent components. The gap is about **who the interface is designed to serve**. Traditional systems serve human users. CortexUI serves human users and AI agents simultaneously.
+</Callout>
+
+## The ARIA Comparison in Detail
+
+A common question: "Can I just add ARIA attributes to my existing components? Why do I need `data-ai-*`?"
+
+ARIA was designed to communicate with assistive technologies — screen readers, switch access devices, voice navigation. Its vocabulary is structured around user interface roles and properties: `role="button"`, `aria-expanded="true"`, `aria-label="Close dialog"`.
+
+`data-ai-*` attributes were designed to communicate with AI agents and automation systems. Their vocabulary is structured around business logic: what action does this trigger, what entity does it relate to, what is the machine state of this workflow step.
+
+These are different vocabularies for different audiences:
+
+| Concern | ARIA | `data-ai-*` |
+|---|---|---|
+| "Is this a button?" | `role="button"` | (not needed) |
+| "Is it currently unavailable?" | `aria-disabled="true"` | `data-ai-state="disabled"` |
+| "What does it do?" | `aria-label="Save profile"` | `data-ai-action="save-profile"` |
+| "Which entity does it affect?" | (no concept) | `data-ai-entity="user"` |
+| "What screen is active?" | (no concept) | `data-ai-screen="settings"` |
+| "What action can I trigger here?" | (no concept) | queryable via runtime API |
+| "Is it loading?" | `aria-busy="true"` | `data-ai-state="loading"` |
+
+CortexUI includes both ARIA and `data-ai-*` attributes. They are complementary, not competing.
+
+## When to Choose CortexUI
+
+Choose CortexUI when:
+
+**You are building AI-powered features.** If your product includes an AI copilot, an AI assistant, or any feature where an LLM needs to interact with your UI, you need a stable semantic layer. CortexUI provides it out of the box.
+
+**You have browser automation or end-to-end testing at scale.** If your test suite is constantly breaking due to CSS selector changes, CortexUI's stable `data-ai-*` identifiers will dramatically reduce maintenance overhead.
+
+**You are building for an ecosystem where your UI will be consumed by third-party agents.** If your product is a platform that other developers build on, and those developers may deploy AI agents that interact with your UI, CortexUI gives those agents a reliable contract.
+
+**You are investing in long-term interface stability.** Semantic contracts age better than structural conventions. An interface built on explicit `data-ai-action` identifiers is more maintainable over time than one built on CSS class conventions.
+
+**You want observability into your UI at runtime.** The `window.__CORTEX_UI__` runtime API gives you and your tooling real-time visibility into the state of every interactive element. This is useful for debugging, monitoring, and analytics.
+
+## When Traditional Systems Are Fine
+
+Traditional design systems are a completely appropriate choice when:
+
+**Your application has no AI features and no near-term plans for AI features.** If you are building a dashboard that will only ever be used by human users with no automation requirements, the AI semantic layer is unnecessary complexity.
+
+**You have an existing design system you are already invested in.** Migrating to CortexUI has a cost. If your current system works for your requirements, that cost is not justified.
+
+**You are building a content site, marketing page, or document-centric experience.** The AI contract system is designed for interactive applications with state-driven components. Content sites with mostly static content and minimal interaction do not benefit significantly from it.
+
+**Performance is paramount and every byte counts.** CortexUI adds attributes and a runtime script to your application. For most applications this cost is negligible, but in extreme performance-sensitive contexts it is worth weighing.
+
+<Callout type="tip">
+CortexUI is not an either/or choice with other design systems in terms of visual patterns. Many teams use CortexUI's semantic layer (`@cortexui/ai-contract`) in combination with their existing visual component library. The semantic layer is independently useful even if you are not using CortexUI's visual components.
+</Callout>
+
+## Migration Path
+
+If you are currently using Chakra UI, MUI, Radix, or another system and want to adopt CortexUI incrementally, the recommended path is:
+
+1. Install `@cortexui/ai-contract` and `@cortexui/runtime` alongside your existing system
+2. Begin annotating existing components with `data-ai-*` attributes manually, using the contract types for type safety
+3. Gradually replace visual components with CortexUI equivalents where it makes sense
+4. Use the runtime API to verify your semantic layer as you build it
+
+You do not have to migrate everything at once. The semantic layer is independently valuable and can be layered onto an existing application.
+
+## Summary
+
+CortexUI is a superset of what traditional design systems provide. It includes everything they offer — components, theming, accessibility, TypeScript — and adds the AI semantic layer, the runtime inspection API, and the design discipline of building interfaces as interaction contracts. For applications where AI agents are or will be first-class consumers of the interface, CortexUI is the right architectural choice.
+
+## Next Steps
+
+- [What is CortexUI](/docs/introduction/what-is-cortexui)
+- [The CortexUI philosophy](/docs/introduction/philosophy)
+- [Get started with installation](/docs/getting-started/installation)
+- [Build your first AI-native component](/docs/getting-started/first-component)

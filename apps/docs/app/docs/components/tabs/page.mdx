@@ -1,0 +1,68 @@
+# Tabs
+
+A tabbed interface for switching between content sections.
+
+## Overview
+
+Tabs organize content into panels, one visible at a time. Each tab is a `nav-item` with `data-ai-state="selected"` on the active tab. AI agents can identify which tab is active and switch tabs by clicking non-selected tabs.
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| tabs | `Tab[]` | required | Array of `{ id, label, content }` |
+| activeTab | `string` | required | ID of active tab |
+| onChange | `(id: string) => void` | required | Tab change handler |
+
+## AI Contract
+
+```html
+<div data-ai-role="section" data-ai-section="profile-tabs">
+  <nav>
+    <button
+      data-ai-role="nav-item"
+      data-ai-id="tab-overview"
+      data-ai-action="switch-tab-overview"
+      data-ai-state="selected"
+    >Overview</button>
+    <button
+      data-ai-role="nav-item"
+      data-ai-id="tab-settings"
+      data-ai-action="switch-tab-settings"
+      data-ai-state="idle"
+    >Settings</button>
+  </nav>
+  <div><!-- active tab content --></div>
+</div>
+```
+
+## Examples
+
+```tsx
+const [activeTab, setActiveTab] = useState('overview');
+
+<Tabs
+  activeTab={activeTab}
+  onChange={setActiveTab}
+  tabs={[
+    { id: 'overview', label: 'Overview', content: <OverviewPanel /> },
+    { id: 'settings', label: 'Settings', content: <SettingsPanel /> },
+    { id: 'activity', label: 'Activity', content: <ActivityPanel /> }
+  ]}
+/>
+```
+
+<Callout type="tip">
+Use descriptive tab IDs that reflect content: `overview`, `settings`, `activity` — not `tab-1`, `tab-2`. AI agents use these to navigate to the right panel.
+</Callout>
+
+## Accessibility
+
+- Follows ARIA Tabs pattern: `role="tablist"`, `role="tab"`, `role="tabpanel"`
+- Arrow keys switch between tabs
+- Tab content panels use `aria-labelledby`
+
+## Related
+
+- [Navigation component](/docs/components/navigation)
+- [Roles: nav-item](/docs/ai-contract/roles)

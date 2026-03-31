@@ -1,0 +1,45 @@
+# InputBase
+
+A raw accessible input with no visual styling.
+
+## Purpose
+
+InputBase handles the behavioral contract of an input:
+- Value binding and change events
+- Disabled state
+- Error state (via aria-invalid)
+- ARIA attributes
+
+## Usage
+
+```tsx
+import { InputBase } from '@cortexui/primitives';
+
+// Building a custom AI-native input
+function PhoneInput({ value, onChange, error }) {
+  return (
+    <InputBase
+      type="tel"
+      value={value}
+      onChange={onChange}
+      aria-invalid={!!error}
+      data-ai-role="field"
+      data-ai-id="phone-field"
+      data-ai-field-type="text"
+      data-ai-required="true"
+      className="border rounded px-3 py-2"
+    />
+  );
+}
+```
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| type | `string` | `'text'` | Input type |
+| value | `string` | — | Controlled value |
+| onChange | `(e) => void` | — | Change handler |
+| disabled | `boolean` | `false` | Disable input |
+| error | `boolean` | `false` | Sets aria-invalid |
+| ...rest | any | — | Any HTML input attribute |

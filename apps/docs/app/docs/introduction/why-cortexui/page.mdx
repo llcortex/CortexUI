@@ -1,0 +1,131 @@
+# Why CortexUI
+
+The web was built for humans. Every design pattern, every framework convention, every accessibility guideline was authored with a human at the keyboard in mind. But we are now shipping products where AI agents browse pages, fill forms, click buttons, extract data, and take actions — often without a human in the loop. The web was not designed for this, and it shows.
+
+## The Problem: AI Agents Are Flying Blind
+
+When an AI agent or automation script needs to interact with a web application, it faces a fundamental problem: the interface does not describe itself in any way the agent can reliably interpret.
+
+The agent lands on your checkout page. It needs to submit an order. What does it do?
+
+It might look for a button with the text "Place Order" — but last week the copywriter changed it to "Complete Purchase." It might target a CSS class like `.checkout-submit` — but last quarter the design team refactored the stylesheet. It might use an XPath expression based on document structure — but the developer added a new wrapper div during a layout update. Every strategy available to the agent is a heuristic. Every heuristic eventually breaks.
+
+<Callout type="warning">
+Industry estimates suggest that up to 60% of browser automation failures stem from DOM instability — selectors breaking when styles, text content, or document structure changes. This is not a tooling problem. It is an architecture problem.
+</Callout>
+
+This is not a problem with the AI tools. It is a problem with the interfaces they are trying to use. The interfaces were never designed to be consumed by agents.
+
+## The Consequences
+
+The brittleness of AI-UI interaction has cascading effects across the entire stack:
+
+### Flaky Automation
+
+End-to-end test suites built on CSS selectors or text matching require constant maintenance. A single design change can break dozens of tests. Teams spend engineering hours updating test selectors rather than writing new tests. Over time, the test suite degrades in coverage and reliability.
+
+### Wrong Actions, Bad Outcomes
+
+When an agent guesses wrong — targeting the wrong button, misidentifying the right input field, reading stale state — the consequences can be severe. An order gets placed twice. A form submits with wrong data. A deletion happens that was not intended. The agent took a confident action based on faulty information.
+
+### Poor AI Product Experience
+
+If you are building a product with an AI assistant that can operate your UI, your users will experience degradation every time your interface changes. The AI co-pilot that worked last week mysteriously fails today because a class name changed. Users lose trust. The feature gets disabled. The product regresses.
+
+### The Hidden Maintenance Tax
+
+Every AI-powered feature that relies on DOM scraping carries an invisible maintenance tax. Every interface change is also a potential AI breakage. Teams that build on brittle foundations spend a disproportionate amount of engineering time on repairs rather than new capabilities.
+
+## Why Existing Solutions Fall Short
+
+The natural response to this problem is: "we already have ARIA attributes for accessibility. Why not use those?" The answer is: ARIA is necessary but not sufficient.
+
+### ARIA Alone Is Not Enough
+
+ARIA (Accessible Rich Internet Applications) attributes describe semantic roles for screen readers: `role="button"`, `aria-label="Save"`, `aria-disabled="true"`. These are valuable and CortexUI uses them fully. But ARIA was designed to communicate with assistive technologies, not AI agents.
+
+ARIA does not express:
+- **Stable action identifiers** that persist across refactors
+- **Entity relationships** (which domain object does this element refer to?)
+- **Screen context** (which page or workflow is active?)
+- **AI-specific state machine transitions** (is this element in a loading state that the agent should wait out?)
+- **Logical groupings** of elements into sections that an agent can reason about
+
+An AI agent using ARIA alone still has to guess. It knows a button exists. It does not know that the button's `data-ai-action="submit-order"` and that it is currently `data-ai-state="loading"` (meaning: do not click yet).
+
+### CSS Selectors Break
+
+CSS class names are implementation details. They change when styles are refactored, when design systems are upgraded, when a developer renames a component. Using CSS selectors to target interactive elements is targeting the implementation, not the contract.
+
+```html
+<!-- Fragile: implementation-coupled selector -->
+<button class="btn btn-primary checkout-submit-v2">Place Order</button>
+
+<!-- Stable: contract-coupled identifier -->
+<button
+  class="btn btn-primary checkout-submit-v2"
+  data-ai-id="submit-order-btn"
+  data-ai-action="submit-order"
+  data-ai-state="idle"
+>
+  Place Order
+</button>
+```
+
+The class names in this example will likely change. The `data-ai-action` identifier is a contract. It changes only when the product team intentionally decides the semantic meaning of the button has changed.
+
+### Text Matching Is Fragile
+
+Targeting elements by their visible text content couples automation to copywriting decisions. Internationalized applications fail immediately — "Submit" becomes "Einreichen" in German, "提交" in Chinese, "Soumettre" in French. A/B tests change button copy. The product team rewrites headlines. Each of these is a normal product activity, and none of them should break AI-UI interaction.
+
+<Callout type="note">
+A well-designed interface contract separates the **presentation** (what a human sees) from the **identity** (what a machine references). CortexUI's `data-ai-*` attributes are the identity layer. They are independent of copy, style, or layout.
+</Callout>
+
+## Real-World Scenarios Where This Matters
+
+### Browser Automation and RPA
+
+Robotic Process Automation tools use browser automation to interact with web applications on behalf of users or systems. These tools constantly battle interface instability. When your application uses CortexUI, RPA tools can target stable `data-ai-*` attributes instead of brittle CSS selectors, dramatically reducing maintenance overhead.
+
+### AI-Powered Copilots
+
+Products are increasingly shipping AI assistants that can operate the interface on behalf of users ("fill in this form for me," "submit my expense report"). These assistants need to locate the right elements, read their current state, and take the right actions. With CortexUI, the interface tells the assistant exactly what is available and what each element does.
+
+### Automated Testing
+
+End-to-end tests written against CortexUI's semantic layer are dramatically more stable. A test that clicks `[data-ai-action="submit-order"]` survives a full visual redesign. A test that clicks `.checkout-btn-primary` does not. This is not just a developer experience improvement — it is a product quality improvement.
+
+### LLM-Powered Features
+
+As applications embed language models that can take UI actions, the reliability of those features depends entirely on how well the interface describes itself. An LLM that can read `data-ai-*` attributes can understand what is on screen with the same reliability a developer would. An LLM that has to parse raw HTML structure is guessing.
+
+### Monitoring and Observability
+
+The `window.__CORTEX_UI__` runtime API enables monitoring tools to observe the complete interactive state of an interface at any moment. Which actions are available? Which elements are disabled? What state is each interactive element in? This becomes possible when the interface is self-describing.
+
+## The Opportunity: UI That Describes Itself
+
+The opportunity that CortexUI takes advantage of is simple: if interfaces described themselves to AI agents with the same rigor that REST APIs describe themselves to API clients, every downstream AI-UI integration becomes dramatically more reliable.
+
+An API without documentation and stable contracts is nearly unusable. A web interface without stable, machine-readable semantics is in the same position from an AI agent's perspective. CortexUI adds the documentation and contracts.
+
+When your interface can answer these questions deterministically:
+
+- What actions are available on this screen?
+- What state is each interactive element currently in?
+- Which entity does this form relate to?
+- What will happen when I trigger this action?
+
+...then AI agents stop guessing and start operating with the same reliability as code calling a well-documented API.
+
+## Summary
+
+The problem is architectural: web interfaces were not designed for machine consumption. The result is brittle automation, unreliable AI features, and constant maintenance overhead. Existing solutions — ARIA, CSS selectors, text matching — are all heuristics that break when interfaces change. CortexUI addresses the root cause by building a stable semantic contract into every component, making AI-UI interaction as reliable as API calls.
+
+## Next Steps
+
+- [What is CortexUI](/docs/introduction/what-is-cortexui)
+- [CortexUI philosophy and principles](/docs/introduction/philosophy)
+- [CortexUI vs traditional design systems](/docs/introduction/comparison)
+- [Get started with installation](/docs/getting-started/installation)

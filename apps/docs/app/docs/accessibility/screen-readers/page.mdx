@@ -1,0 +1,34 @@
+# Screen Readers
+
+## Supported Screen Readers
+
+CortexUI is tested with:
+- NVDA + Chrome (Windows)
+- JAWS + Chrome (Windows)
+- VoiceOver + Safari (macOS/iOS)
+
+## Dynamic Updates
+
+State changes announce themselves to screen readers via live regions:
+
+```html
+<!-- Loading state: aria-busy announces "busy" -->
+<button aria-busy="true">
+  <span aria-live="polite">Saving...</span>
+</button>
+
+<!-- Error state: assertive for urgent announcements -->
+<div aria-live="assertive" role="alert">
+  Save failed. Please try again.
+</div>
+```
+
+## The Parallel with AI Agents
+
+Screen readers and AI agents share the same core need: understanding UI without visual rendering.
+
+A UI accessible to screen readers is halfway to being AI-operable. CortexUI completes the bridge with the data-ai-* layer.
+
+<Callout type="note">
+WCAG 2.1 AA compliance is a prerequisite for all CortexUI components. If a component isn't accessible, it's a bug.
+</Callout>

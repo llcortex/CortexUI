@@ -1,0 +1,59 @@
+# DialogBase
+
+A raw accessible dialog/modal primitive.
+
+## Purpose
+
+DialogBase handles the hardest parts of modals correctly:
+- Focus trapping (Tab cycles within the dialog)
+- ESC key closing
+- `aria-modal="true"` and `role="dialog"`
+- Portal rendering (renders outside DOM hierarchy to avoid z-index issues)
+- Return focus to trigger element on close
+
+## Usage
+
+```tsx
+import { DialogBase } from '@cortexui/primitives';
+
+function CustomModal({ isOpen, onClose, title, children }) {
+  return (
+    <DialogBase
+      isOpen={isOpen}
+      onClose={onClose}
+      aria-labelledby="modal-title"
+      data-ai-role="modal"
+      data-ai-id="custom-modal"
+      data-ai-state={isOpen ? 'expanded' : 'idle'}
+    >
+      <h2 id="modal-title">{title}</h2>
+      {children}
+    </DialogBase>
+  );
+}
+```
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| isOpen | `boolean` | required | Controls visibility |
+| onClose | `() => void` | required | Close callback |
+| children | `ReactNode` | required | Dialog content |
+| ...rest | any | — | Any HTML dialog attribute |
+
+<Callout type="important">
+Always add `data-ai-role="modal"` and `data-ai-state="expanded"` when building on DialogBase. These are not added automatically.
+</Callout>
+
+## Accessibility
+
+- Focus trap: Tab and Shift+Tab cycle only within the dialog
+- ESC calls onClose
+- On mount: focuses first focusable element inside
+- On close: returns focus to the element that triggered the dialog
+
+## Related
+
+- [Modal component](/docs/components/modal)
+- [ConfirmDialog component](/docs/components/confirm-dialog)

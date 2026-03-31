@@ -1,0 +1,219 @@
+
+# Custom AI Contracts
+
+## When to Extend
+
+The standard `data-ai-*` attributes cover most use cases out of the box. The core vocabulary — `data-ai-role`, `data-ai-id`, `data-ai-action`, `data-ai-state`, `data-ai-entity`, `data-ai-entity-id`, `data-ai-section` — handles the majority of interactive elements in typical web applications.
+
+Extend the contract with custom attributes when:
+
+- Your domain has entity-specific states not in the standard set (e.g., `locked`, `escalated`, `pending-review` for a workflow system)
+- You have custom roles not covered by the standard vocabulary: `action`, `field`, `form`, `table`, `modal`, `nav-item`, `status`, `screen`, `section`
+- Your runtime consumers — agents, testing tools, analytics — need domain-specific metadata that isn't captured by the standard attributes
+- You are building a design system for a specific vertical (healthcare, finance, logistics) with domain-specific interaction semantics
+
+Do not extend for attributes that could be handled by the standard vocabulary. Custom attributes add maintenance surface. Use the standard contract wherever it fits.
+
+## Adding Custom Attributes
+
+Custom attributes follow the same `data-ai-` prefix convention as the standard contract. This ensures they are picked up by the CortexUI runtime and included in the contract tree.
+
+```html
+<!-- Custom priority attribute for a task manager -->
+<button
+  data-ai-role="action"
+  data-ai-id="complete-task-42"
+  data-ai-action="complete-task"
+  data-ai-state="idle"
+  data-ai-priority="high"
+>
+  Complete Task
+</button>
+```
+
+```html
+<!-- Custom workflow state for a document approval system -->
+<div
+  data-ai-role="status"
+  data-ai-id="approval-status-doc-99"
+  data-ai-entity="document"
+  data-ai-entity-id="doc-99"
+  data-ai-approval-state="pending-review"
+  data-ai-reviewer="user-44"
+>
+  Pending Review
+</div>
+```
+
+```html
+<!-- Custom category and severity for a support ticket system -->
+<article
+  data-ai-role="section"
+  data-ai-id="ticket-detail-501"
+  data-ai-entity="support-ticket"
+  data-ai-entity-id="ticket-501"
+  data-ai-category="billing"
+  data-ai-severity="high"
+>
+  <!-- ticket content -->
+</article>
+```
+
+<Callout type="note">
+Custom attributes must be prefixed with `data-ai-` to be picked up by the CortexUI runtime. Attributes without this prefix are ignored by the contract scanner and will not appear in `getScreenContext()`, `getAvailableActions()`, or any other runtime API response.
+</Callout>
+
+## Registering with the Runtime
+
+To have custom attributes included in runtime API responses and tracked in the event log, register them when installing the runtime:
+
+```ts
+import { installCortexUIRuntime } from '@cortexui/runtime';
+
+installCortexUIRuntime(window, {
+  customAttributes: ['data-ai-priority', 'data-ai-category', 'data-ai-severity'],
+  onCustomAttribute(el, attr, value) {
+    // Called whenever a custom attribute is observed during contract scanning
+    // Use this hook to validate, transform, or emit custom events
+    if (attr === 'data-ai-priority' && !['high', 'medium', 'low'].includes(value)) {
+      console.warn(`[CortexUI] Unknown priority value: ${value} on element`, el);
+    }
+  }
+});
+```
+
+After registration, custom attributes are included in element descriptors returned by the runtime:
+
+```ts
+const actions = window.__CORTEX_UI__.getAvailableActions();
+// Returns:
+// [
+//   {
+//     id: "complete-task-42",
+//     action: "complete-task",
+//     state: "idle",
+//     priority: "high"   ← custom attribute included
+//   }
+// ]
+```
+
+## Documenting Custom Attributes
+
+Document custom attributes the same way you'd document an API extension. This documentation is for human developers, AI agent implementers, and future maintainers of the system.
+
+```ts
+/**
+ * data-ai-priority
+ *
+ * Purpose: Communicates the priority level of an action to AI agents,
+ *          allowing agents to sequence or weight actions by urgency.
+ *
+ * Valid values: 'high' | 'medium' | 'low'
+ *
+ * Applies to: Elements with data-ai-role="action"
+ *
+ * How agents should use it:
+ *   - When multiple actions are available, prefer 'high' priority actions
+ *   - Surface 'high' priority pending items proactively in summaries
+ *   - Do not deprioritize 'low' priority items — they still require completion
+ *
+ * How the runtime uses it:
+ *   - Included in getAvailableActions() response under the key 'priority'
+ *   - Not used for runtime validation; validation is the agent's responsibility
+ *
+ * Example:
+ *   <button data-ai-role="action" data-ai-priority="high">Complete Task</button>
+ */
+```
+
+```ts
+/**
+ * data-ai-approval-state
+ *
+ * Purpose: Declares the approval workflow state of a document or request,
+ *          providing agents with workflow context beyond the standard
+ *          data-ai-state values.
+ *
+ * Valid values:
+ *   'draft'          — Document is being edited, not yet submitted
+ *   'pending-review' — Submitted, awaiting reviewer action
+ *   'approved'       — Approved by reviewer
+ *   'rejected'       — Rejected with required changes
+ *   'archived'       — Completed and archived
+ *
+ * Applies to: Elements with data-ai-role="status" or data-ai-role="section"
+ *             representing document or approval-request entities
+ *
+ * Relationship to data-ai-state:
+ *   data-ai-state tracks the UI element's interaction state (idle, loading, etc.)
+ *   data-ai-approval-state tracks the domain entity's workflow state.
+ *   Both can be present simultaneously.
+ */
+```
+
+## Custom Attribute Validation
+
+For production systems, add runtime validation for custom attributes to catch implementation errors early:
+
+```ts
+import { installCortexUIRuntime } from '@cortexui/runtime';
+
+const VALID_PRIORITIES = new Set(['high', 'medium', 'low']);
+const VALID_APPROVAL_STATES = new Set([
+  'draft', 'pending-review', 'approved', 'rejected', 'archived'
+]);
+
+installCortexUIRuntime(window, {
+  customAttributes: ['data-ai-priority', 'data-ai-approval-state'],
+  onCustomAttribute(el, attr, value) {
+    if (attr === 'data-ai-priority' && !VALID_PRIORITIES.has(value)) {
+      console.error(
+        `[CortexUI] Invalid data-ai-priority value "${value}". ` +
+        `Valid values: ${[...VALID_PRIORITIES].join(', ')}`
+      );
+    }
+    if (attr === 'data-ai-approval-state' && !VALID_APPROVAL_STATES.has(value)) {
+      console.error(
+        `[CortexUI] Invalid data-ai-approval-state value "${value}". ` +
+        `Valid values: ${[...VALID_APPROVAL_STATES].join(', ')}`
+      );
+    }
+  }
+});
+```
+
+<Callout type="tip">
+Consider publishing your custom attribute schema as a JSON file alongside your design system documentation. Agents and testing tools that work with your application can read this schema to understand the extended vocabulary without needing to inspect the code.
+</Callout>
+
+## Sharing Custom Contracts Across Applications
+
+If your organization runs multiple applications on the same design system, publish your custom attributes as a shared package:
+
+```ts
+// packages/ai-contract/src/attributes.ts
+export const CUSTOM_AI_ATTRIBUTES = [
+  'data-ai-priority',
+  'data-ai-category',
+  'data-ai-approval-state',
+  'data-ai-severity',
+] as const;
+
+export type AiPriority = 'high' | 'medium' | 'low';
+export type AiApprovalState = 'draft' | 'pending-review' | 'approved' | 'rejected' | 'archived';
+
+// packages/ai-contract/src/runtime.ts
+import { installCortexUIRuntime } from '@cortexui/runtime';
+import { CUSTOM_AI_ATTRIBUTES, AiPriority, AiApprovalState } from './attributes';
+
+export function installWithCustomContract(win: Window) {
+  installCortexUIRuntime(win, {
+    customAttributes: [...CUSTOM_AI_ATTRIBUTES],
+    onCustomAttribute(el, attr, value) {
+      // shared validation logic
+    }
+  });
+}
+```
+
+This ensures consistency across the organization and gives all applications access to the extended vocabulary with a single import.

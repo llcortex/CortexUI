@@ -1,0 +1,327 @@
+# Form Schema
+
+Forms are the primary mechanism through which users — and AI agents — enter data into an application. The AI contract gives every form a machine-readable schema that agents can discover and use to fill forms programmatically, validate expected fields, and interpret submission results.
+
+## Annotating a Form
+
+A form is declared using `data-ai-role="form"` on the `<form>` element, combined with a `data-ai-id` that is stable and descriptive.
+
+```html
+<form
+  data-ai-role="form"
+  data-ai-id="edit-profile-form"
+>
+  <!-- fields and submit action -->
+</form>
+```
+
+The `data-ai-id` is what agents use to reference the form via `getFormSchema()`. It must be unique per screen.
+
+## Annotating Fields
+
+Every field in the form must carry three attributes:
+
+1. `data-ai-role="field"` — identifies it as a field in the contract
+2. `data-ai-field-type` — what kind of data it holds
+3. `data-ai-required` — whether it must be filled before submission
+
+```html
+<input
+  data-ai-role="field"
+  data-ai-id="name-field"
+  data-ai-field-type="text"
+  data-ai-required="true"
+  name="name"
+  type="text"
+/>
+
+<input
+  data-ai-role="field"
+  data-ai-id="email-field"
+  data-ai-field-type="email"
+  data-ai-required="true"
+  name="email"
+  type="email"
+/>
+
+<input
+  data-ai-role="field"
+  data-ai-id="phone-field"
+  data-ai-field-type="tel"
+  data-ai-required="false"
+  name="phone"
+  type="tel"
+/>
+```
+
+### Field Types
+
+| data-ai-field-type | Typical HTML element | Notes |
+|---|---|---|
+| text | `<input type="text">` | General text string |
+| email | `<input type="email">` | Must be valid email format |
+| password | `<input type="password">` | Value redacted in events |
+| number | `<input type="number">` | Numeric value |
+| tel | `<input type="tel">` | Phone number (format varies) |
+| url | `<input type="url">` | Must be valid URL |
+| date | `<input type="date">` | ISO 8601 date |
+| datetime | `<input type="datetime-local">` | ISO 8601 datetime |
+| time | `<input type="time">` | HH:MM format |
+| select | `<select>` | Single choice from options |
+| multiselect | `<select multiple>` | Multiple choices |
+| checkbox | `<input type="checkbox">` | Boolean true/false |
+| radio | `<input type="radio">` | Single choice from group |
+| textarea | `<textarea>` | Multi-line text |
+| file | `<input type="file">` | File upload |
+
+## Complete Annotated Form Example
+
+```html
+<section data-ai-section="profile-form">
+  <form
+    data-ai-role="form"
+    data-ai-id="edit-profile-form"
+    onSubmit={handleSubmit}
+  >
+    <div>
+      <label htmlFor="name-input">Full Name *</label>
+      <input
+        id="name-input"
+        data-ai-role="field"
+        data-ai-id="name-field"
+        data-ai-field-type="text"
+        data-ai-required="true"
+        data-ai-state="idle"
+        name="name"
+        type="text"
+        required
+      />
+    </div>
+
+    <div>
+      <label htmlFor="email-input">Email Address *</label>
+      <input
+        id="email-input"
+        data-ai-role="field"
+        data-ai-id="email-field"
+        data-ai-field-type="email"
+        data-ai-required="true"
+        data-ai-state="idle"
+        name="email"
+        type="email"
+        required
+      />
+    </div>
+
+    <div>
+      <label htmlFor="phone-input">Phone</label>
+      <input
+        id="phone-input"
+        data-ai-role="field"
+        data-ai-id="phone-field"
+        data-ai-field-type="tel"
+        data-ai-required="false"
+        data-ai-state="idle"
+        name="phone"
+        type="tel"
+      />
+    </div>
+
+    <div>
+      <label htmlFor="timezone-select">Timezone</label>
+      <select
+        id="timezone-select"
+        data-ai-role="field"
+        data-ai-id="timezone-field"
+        data-ai-field-type="select"
+        data-ai-required="true"
+        data-ai-state="idle"
+        name="timezone"
+      >
+        <option value="America/New_York">Eastern Time</option>
+        <option value="America/Chicago">Central Time</option>
+        <option value="America/Denver">Mountain Time</option>
+        <option value="America/Los_Angeles">Pacific Time</option>
+      </select>
+    </div>
+
+    <div>
+      <label htmlFor="bio-textarea">Bio</label>
+      <textarea
+        id="bio-textarea"
+        data-ai-role="field"
+        data-ai-id="bio-field"
+        data-ai-field-type="textarea"
+        data-ai-required="false"
+        data-ai-state="idle"
+        name="bio"
+      ></textarea>
+    </div>
+
+    <button
+      data-ai-role="action"
+      data-ai-id="save-profile"
+      data-ai-action="save-profile"
+      data-ai-state="idle"
+      type="submit"
+    >
+      Save Profile
+    </button>
+  </form>
+</section>
+```
+
+## The getFormSchema() Output
+
+Given the annotated form above, `getFormSchema("edit-profile-form")` returns:
+
+```js
+const schema = window.__CORTEX_UI__.getFormSchema("edit-profile-form");
+
+/*
+{
+  "formId": "edit-profile-form",
+  "section": "profile-form",
+  "fields": [
+    {
+      "fieldId": "name-field",
+      "fieldType": "text",
+      "required": true,
+      "name": "name",
+      "currentValue": "Alice Smith",
+      "state": "idle"
+    },
+    {
+      "fieldId": "email-field",
+      "fieldType": "email",
+      "required": true,
+      "name": "email",
+      "currentValue": "alice@example.com",
+      "state": "idle"
+    },
+    {
+      "fieldId": "phone-field",
+      "fieldType": "tel",
+      "required": false,
+      "name": "phone",
+      "currentValue": "+1-555-0100",
+      "state": "idle"
+    },
+    {
+      "fieldId": "timezone-field",
+      "fieldType": "select",
+      "required": true,
+      "name": "timezone",
+      "currentValue": "America/New_York",
+      "options": [
+        { "value": "America/New_York", "label": "Eastern Time" },
+        { "value": "America/Chicago", "label": "Central Time" },
+        { "value": "America/Denver", "label": "Mountain Time" },
+        { "value": "America/Los_Angeles", "label": "Pacific Time" }
+      ],
+      "state": "idle"
+    },
+    {
+      "fieldId": "bio-field",
+      "fieldType": "textarea",
+      "required": false,
+      "name": "bio",
+      "currentValue": "",
+      "state": "idle"
+    }
+  ],
+  "submitAction": "save-profile"
+}
+*/
+```
+
+<Callout type="note">
+For select and multiselect fields, getFormSchema() includes an "options" array with all available choices and their display labels. This lets agents pick valid options without having to inspect the DOM directly.
+</Callout>
+
+## How AI Agents Fill Forms Programmatically
+
+With the schema in hand, an agent can fill a form in a structured, type-aware way:
+
+```ts
+async function fillProfileForm(data: {
+  name?: string;
+  email?: string;
+  phone?: string;
+  timezone?: string;
+  bio?: string;
+}) {
+  const schema = window.__CORTEX_UI__.getFormSchema("edit-profile-form");
+
+  for (const field of schema.fields) {
+    const value = data[field.name];
+    if (value === undefined) continue;
+
+    const el = document.querySelector(`[data-ai-id="${field.fieldId}"]`) as HTMLInputElement;
+    if (!el) continue;
+
+    if (field.fieldType === "select") {
+      // Validate the value is a legal option
+      const valid = field.options?.some(o => o.value === value);
+      if (!valid) throw new Error(`Invalid option "${value}" for ${field.fieldId}`);
+    }
+
+    // Set the value and dispatch change events
+    const nativeInputSetter = Object.getOwnPropertyDescriptor(
+      field.fieldType === "select" ? HTMLSelectElement.prototype : HTMLInputElement.prototype,
+      "value"
+    )?.set;
+    nativeInputSetter?.call(el, value);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+    el.dispatchEvent(new Event("blur", { bubbles: true }));
+  }
+}
+```
+
+## Validation State: Exposing Errors
+
+When a field fails validation, expose the error state through `data-ai-state`:
+
+```html
+<!-- Field with validation error -->
+<input
+  data-ai-role="field"
+  data-ai-id="email-field"
+  data-ai-field-type="email"
+  data-ai-required="true"
+  data-ai-state="error"
+  aria-invalid="true"
+  aria-describedby="email-error"
+  name="email"
+  type="email"
+/>
+<span id="email-error" data-ai-role="status" data-ai-state="error">
+  Please enter a valid email address.
+</span>
+```
+
+The runtime surfaces validation errors in the schema:
+
+```json
+{
+  "fieldId": "email-field",
+  "fieldType": "email",
+  "required": true,
+  "state": "error",
+  "error": "invalid-format",
+  "currentValue": "not-an-email"
+}
+```
+
+<Callout type="important">
+Never rely on visual styling alone to communicate validation errors. The data-ai-state="error" attribute must be set on the field element so the AI contract reflects the validation state. An agent that cannot see CSS classes or colors must still be able to determine which fields have errors.
+</Callout>
+
+## Related
+
+- [data-ai-* attributes](/docs/ai-contract/attributes)
+- [Roles reference](/docs/ai-contract/roles)
+- [Events reference](/docs/ai-contract/events)
+- [Screen structure](/docs/ai-contract/screen-structure)
+- [Best practices](/docs/ai-contract/best-practices)

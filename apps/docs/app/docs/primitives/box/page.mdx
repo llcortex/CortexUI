@@ -1,0 +1,54 @@
+# Box
+
+The base layout primitive. A polymorphic element that renders any HTML element.
+
+## Purpose
+
+Box is the foundation of all layout in CortexUI. It provides:
+- A consistent styling interface
+- Polymorphic rendering via the `as` prop
+- The base for all other primitives
+
+## Usage
+
+```tsx
+import { Box } from '@cortexui/primitives';
+
+// Renders a <div> by default
+<Box padding="16px">Content</Box>
+
+// Renders a <section>
+<Box as="section" padding="24px">
+  <h2>Section title</h2>
+</Box>
+
+// Renders a <main>
+<Box as="main">
+  <p>Main content</p>
+</Box>
+```
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| as | `keyof JSX.IntrinsicElements` | `'div'` | HTML element to render |
+| children | `ReactNode` | — | Content |
+| ...rest | any | — | All HTML attributes for the target element |
+
+<Callout type="note">
+Box intentionally has minimal styling opinions. It's a structural primitive, not a design component.
+</Callout>
+
+## How Components Use It
+
+```tsx
+// ActionButton uses Box for its wrapper
+function ActionButton({ children }) {
+  return (
+    <Box as="button" data-ai-role="action" ...>
+      {children}
+    </Box>
+  );
+}
+```

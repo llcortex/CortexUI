@@ -1,0 +1,308 @@
+# Events Reference
+
+Events are the observable outcomes of user and agent interactions. Every significant operation in a CortexUI application emits a structured event that the runtime records and agents can query. Events close the feedback loop — they are how an agent knows whether what it did actually worked.
+
+## The 5 Event Types
+
+| Event Type | Fired When | Key Payload Fields |
+|---|---|---|
+| action_triggered | An action element is activated | actionId, action, section |
+| action_completed | An action resolved successfully | actionId, action, result |
+| action_failed | An action rejected or errored | actionId, action, error |
+| form_submitted | A form's submit action fired | formId, fields |
+| field_updated | A field's value changed | fieldId, fieldType, value |
+
+## Event Payload Structure
+
+All events share a common envelope, with type-specific payload fields.
+
+### action_triggered
+
+Emitted the moment an action is activated — before any async operation begins.
+
+```json
+{
+  "type": "action_triggered",
+  "timestamp": "2026-03-30T14:22:05.412Z",
+  "payload": {
+    "actionId": "save-profile",
+    "action": "save-profile",
+    "section": "profile-form",
+    "screen": "user-profile"
+  }
+}
+```
+
+### action_completed
+
+Emitted when an action's async operation resolves successfully.
+
+```json
+{
+  "type": "action_completed",
+  "timestamp": "2026-03-30T14:22:06.891Z",
+  "payload": {
+    "actionId": "save-profile",
+    "action": "save-profile",
+    "result": "success",
+    "durationMs": 1479,
+    "screen": "user-profile"
+  }
+}
+```
+
+### action_failed
+
+Emitted when an action's async operation rejects or returns an error.
+
+```json
+{
+  "type": "action_failed",
+  "timestamp": "2026-03-30T14:22:06.103Z",
+  "payload": {
+    "actionId": "submit-order",
+    "action": "submit-order",
+    "error": "payment-declined",
+    "durationMs": 691,
+    "screen": "checkout"
+  }
+}
+```
+
+### form_submitted
+
+Emitted when a form's submit action fires, carrying a snapshot of the field values at submission time.
+
+```json
+{
+  "type": "form_submitted",
+  "timestamp": "2026-03-30T14:22:05.420Z",
+  "payload": {
+    "formId": "edit-profile-form",
+    "screen": "user-profile",
+    "fields": [
+      { "fieldId": "name-field", "fieldType": "text", "value": "Alice Smith" },
+      { "fieldId": "email-field", "fieldType": "email", "value": "alice@example.com" },
+      { "fieldId": "phone-field", "fieldType": "tel", "value": "+1-555-0100" }
+    ]
+  }
+}
+```
+
+### field_updated
+
+Emitted when a field's value changes — on blur or on change, depending on configuration.
+
+```json
+{
+  "type": "field_updated",
+  "timestamp": "2026-03-30T14:22:04.889Z",
+  "payload": {
+    "fieldId": "email-field",
+    "fieldType": "email",
+    "value": "alice@example.com",
+    "formId": "edit-profile-form",
+    "screen": "user-profile"
+  }
+}
+```
+
+<Callout type="note">
+field_updated events for password fields never include the value in the payload. The value is redacted and replaced with the string "[redacted]" to prevent credentials from appearing in event logs.
+</Callout>
+
+## How Events Are Emitted
+
+Events are emitted by CortexUI components automatically when the corresponding interactions occur. You do not need to write event emission code manually when using the design system's built-in components.
+
+For custom components, emit events using the CortexUI runtime:
+
+```ts
+import { emitCortexEvent } from "@cortexui/runtime";
+
+// Emit action_triggered
+emitCortexEvent({
+  type: "action_triggered",
+  payload: {
+    actionId: "save-profile",
+    action: "save-profile",
+    section: "profile-form",
+    screen: "user-profile"
+  }
+});
+
+// After the async operation resolves
+emitCortexEvent({
+  type: "action_completed",
+  payload: {
+    actionId: "save-profile",
+    action: "save-profile",
+    result: "success",
+    durationMs: performance.now() - startTime,
+    screen: "user-profile"
+  }
+});
+```
+
+## How to Listen to Events
+
+You can subscribe to the CortexUI event stream using the `onCortexEvent` listener:
+
+```ts
+import { onCortexEvent } from "@cortexui/runtime";
+
+// Listen to all events
+const unsubscribe = onCortexEvent((event) => {
+  console.log(event.type, event.payload);
+});
+
+// Later, clean up
+unsubscribe();
+
+// Listen to specific event types
+const unsubscribe = onCortexEvent((event) => {
+  if (event.type === "action_completed") {
+    analytics.track("action_completed", event.payload);
+  }
+  if (event.type === "action_failed") {
+    errorReporting.capture(event.payload.error, {
+      actionId: event.payload.actionId
+    });
+  }
+});
+```
+
+You can also listen to raw DOM events dispatched on `window`:
+
+```ts
+window.addEventListener("cortexui:event", (e: CustomEvent) => {
+  const { type, payload } = e.detail;
+  // handle event
+});
+```
+
+## How getRecentEvents() Returns Events
+
+The CortexUI runtime keeps a rolling buffer of the last 50 events. AI agents query this buffer synchronously using `getRecentEvents()`.
+
+```js
+const events = window.__CORTEX_UI__.getRecentEvents();
+
+/*
+[
+  {
+    "type": "action_triggered",
+    "timestamp": "2026-03-30T14:22:05.412Z",
+    "payload": { "actionId": "save-profile", "action": "save-profile", ... }
+  },
+  {
+    "type": "form_submitted",
+    "timestamp": "2026-03-30T14:22:05.420Z",
+    "payload": { "formId": "edit-profile-form", "fields": [...] }
+  },
+  {
+    "type": "action_completed",
+    "timestamp": "2026-03-30T14:22:06.891Z",
+    "payload": { "actionId": "save-profile", "result": "success", ... }
+  }
+]
+*/
+```
+
+Events are returned in chronological order, oldest first. The buffer resets on page navigation.
+
+## Example: Agent Flow Using Events to Verify Success
+
+Here is a complete example of an AI agent using events to verify that a profile save succeeded before proceeding:
+
+```ts
+async function saveUserProfile(userId: string, data: ProfileData) {
+  const runtime = window.__CORTEX_UI__;
+
+  // 1. Verify we're on the right screen
+  const ctx = runtime.getScreenContext();
+  if (ctx.screen !== "user-profile" || ctx.entityId !== userId) {
+    throw new Error(`Wrong screen: expected user-profile/${userId}, got ${ctx.screen}/${ctx.entityId}`);
+  }
+
+  // 2. Check the action is available
+  const actions = runtime.getAvailableActions();
+  const saveAction = actions.find(a => a.action === "save-profile");
+
+  if (!saveAction) {
+    throw new Error("save-profile action not available on this screen");
+  }
+  if (saveAction.state !== "idle") {
+    throw new Error(`save-profile is not idle: ${saveAction.state}`);
+  }
+
+  // 3. Fill the form
+  const schema = runtime.getFormSchema("edit-profile-form");
+  for (const field of schema.fields) {
+    if (data[field.fieldId] !== undefined) {
+      const el = document.querySelector(`[data-ai-id="${field.fieldId}"]`);
+      if (el) {
+        (el as HTMLInputElement).value = data[field.fieldId];
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("blur", { bubbles: true }));
+      }
+    }
+  }
+
+  // 4. Trigger the action
+  const saveButton = document.querySelector('[data-ai-id="save-profile"]');
+  saveButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+  // 5. Wait for the outcome event
+  const outcome = await waitForEvent(
+    (event) =>
+      (event.type === "action_completed" || event.type === "action_failed") &&
+      event.payload.actionId === "save-profile",
+    { timeoutMs: 10000 }
+  );
+
+  if (outcome.type === "action_failed") {
+    throw new Error(`Save failed: ${outcome.payload.error}`);
+  }
+
+  // 6. Confirm via state attribute
+  const button = document.querySelector('[data-ai-id="save-profile"]');
+  const finalState = button?.getAttribute("data-ai-state");
+  if (finalState !== "success") {
+    throw new Error(`Unexpected final state: ${finalState}`);
+  }
+
+  return { success: true, result: outcome.payload.result };
+}
+```
+
+<Callout type="tip">
+Always verify success using both the event stream (action_completed) and the element's data-ai-state attribute. Events confirm the operation resolved; the state attribute confirms the UI reflected that resolution. If they disagree, a state synchronization bug exists in the component.
+</Callout>
+
+## Event Retention and Privacy
+
+The rolling event buffer is in-memory and cleared on navigation. It is never persisted to localStorage or sent to external services by the CortexUI runtime itself — that is the application's responsibility if desired.
+
+Field values in `field_updated` and `form_submitted` events are included by default. If your application handles sensitive data (e.g., SSNs, credit card numbers), mark those fields:
+
+```html
+<input
+  data-ai-role="field"
+  data-ai-id="ssn-field"
+  data-ai-field-type="text"
+  data-ai-required="true"
+  data-ai-sensitive="true"
+  type="password"
+  name="ssn"
+/>
+```
+
+The `data-ai-sensitive="true"` attribute causes the runtime to redact the value in all event payloads.
+
+## Related
+
+- [Actions reference](/docs/ai-contract/actions)
+- [States reference](/docs/ai-contract/states)
+- [Runtime API](/docs/runtime)
+- [Best practices](/docs/ai-contract/best-practices)

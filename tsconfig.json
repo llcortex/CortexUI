@@ -1,0 +1,17 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./apps/docs" },
+    { "path": "./apps/playground" },
+    { "path": "./examples/browser-agent" },
+    { "path": "./examples/next-dashboard" },
+    { "path": "./examples/react-crm" },
+    { "path": "./examples/vanilla-demo" },
+    { "path": "./packages/ai-contract" },
+    { "path": "./packages/components" },
+    { "path": "./packages/primitives" },
+    { "path": "./packages/runtime" },
+    { "path": "./packages/testing" },
+    { "path": "./packages/tokens" }
+  ]
+}

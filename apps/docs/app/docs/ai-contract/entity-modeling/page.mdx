@@ -1,0 +1,328 @@
+# Entity Modeling
+
+Entities are the domain objects your application manages — users, orders, products, invoices, tickets, projects, and so on. The AI contract makes entities explicit through `data-ai-entity` and `data-ai-entity-id`, giving agents the context they need to understand which record any given action or data belongs to.
+
+## What Entities Are
+
+An entity is a named, identifiable domain object. Every meaningful record in your application is an entity:
+
+| Domain | Entity Types |
+|---|---|
+| CRM | user, contact, organization, deal, activity |
+| E-commerce | product, order, order-item, customer, shipment |
+| Project management | project, task, milestone, team, member |
+| Billing | invoice, subscription, payment, credit-note |
+| Support | ticket, comment, agent, queue |
+
+Entities are typically backed by a database record with a unique ID. In the AI contract, you declare both the type (`data-ai-entity`) and the instance (`data-ai-entity-id`) on the DOM element that contains the entity's data and actions.
+
+## data-ai-entity: The Type
+
+`data-ai-entity` names the kind of entity a container represents. It is a singular, kebab-case noun.
+
+```html
+<!-- This container is about a "user" entity -->
+<div data-ai-entity="user" data-ai-entity-id="user-abc">
+  ...
+</div>
+
+<!-- This container is about an "order" entity -->
+<div data-ai-entity="order" data-ai-entity-id="ord-9981">
+  ...
+</div>
+```
+
+## data-ai-entity-id: The Instance
+
+`data-ai-entity-id` is the actual ID of the specific record. It must always appear alongside `data-ai-entity` — one without the other is incomplete.
+
+```html
+<!-- Never use data-ai-entity without data-ai-entity-id -->
+<div data-ai-entity="user">           <!-- Wrong: no instance ID -->
+  ...
+</div>
+
+<!-- Always pair them -->
+<div data-ai-entity="user" data-ai-entity-id="user-abc">   <!-- Correct -->
+  ...
+</div>
+```
+
+Use the actual database ID as the value. If your IDs are UUIDs, use them. If they are integers, stringify them. The contract does not care about the format — only that the value is the canonical ID for that record.
+
+## Placing Entity Annotations
+
+Entity annotations go on the outermost container that exclusively holds data and actions for that entity. On a detail page, this is typically the root element:
+
+```html
+<!-- Detail page: the entire page is about one user -->
+<div
+  data-ai-screen="user-profile"
+  data-ai-entity="user"
+  data-ai-entity-id="user-abc"
+>
+  ...
+</div>
+```
+
+On a list page, each row is its own entity container:
+
+```html
+<!-- List page: each row is an entity -->
+<div data-ai-screen="user-list">
+  <section data-ai-section="users-table">
+    <table data-ai-role="table" data-ai-id="users-table">
+      <tbody>
+        <tr data-ai-entity="user" data-ai-entity-id="user-abc">
+          <td>Alice Smith</td>
+          <td>alice@example.com</td>
+          <td>
+            <button
+              data-ai-role="action"
+              data-ai-id="edit-user-abc"
+              data-ai-action="edit-user"
+              data-ai-state="idle"
+            >Edit</button>
+          </td>
+        </tr>
+        <tr data-ai-entity="user" data-ai-entity-id="user-def">
+          <td>Bob Jones</td>
+          <td>bob@example.com</td>
+          <td>
+            <button
+              data-ai-role="action"
+              data-ai-id="edit-user-def"
+              data-ai-action="edit-user"
+              data-ai-state="idle"
+            >Edit</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+```
+
+## Nested Entities
+
+Entities can nest. An order contains order-items. A project contains tasks. A ticket contains comments. Annotate each level independently.
+
+```html
+<div
+  data-ai-screen="order-detail"
+  data-ai-entity="order"
+  data-ai-entity-id="ord-9981"
+>
+
+  <section data-ai-section="order-summary">
+    <span data-ai-role="status" data-ai-state="success">Delivered</span>
+    <button
+      data-ai-role="action"
+      data-ai-id="reorder-ord-9981"
+      data-ai-action="reorder"
+      data-ai-state="idle"
+    >Reorder</button>
+  </section>
+
+  <section data-ai-section="order-items">
+    <!-- Each line item is its own entity -->
+    <div data-ai-entity="order-item" data-ai-entity-id="item-001">
+      <span>Blue Widget × 2</span>
+      <span>$29.98</span>
+      <button
+        data-ai-role="action"
+        data-ai-id="return-item-001"
+        data-ai-action="return-item"
+        data-ai-state="idle"
+      >Return</button>
+    </div>
+
+    <div data-ai-entity="order-item" data-ai-entity-id="item-002">
+      <span>Red Gadget × 1</span>
+      <span>$49.99</span>
+      <button
+        data-ai-role="action"
+        data-ai-id="return-item-002"
+        data-ai-action="return-item"
+        data-ai-state="idle"
+      >Return</button>
+    </div>
+  </section>
+
+  <section data-ai-section="shipping-details">
+    <div data-ai-entity="shipment" data-ai-entity-id="ship-771">
+      <span>Delivered March 28, 2026</span>
+      <button
+        data-ai-role="action"
+        data-ai-id="track-shipment-771"
+        data-ai-action="track-shipment"
+        data-ai-state="idle"
+      >Track Package</button>
+    </div>
+  </section>
+
+</div>
+```
+
+## getVisibleEntities() Output
+
+The runtime scans the DOM for all entity containers currently visible and returns them as a structured list:
+
+```js
+const entities = window.__CORTEX_UI__.getVisibleEntities();
+
+/*
+[
+  {
+    "entity": "order",
+    "entityId": "ord-9981",
+    "screen": "order-detail",
+    "section": null
+  },
+  {
+    "entity": "order-item",
+    "entityId": "item-001",
+    "screen": "order-detail",
+    "section": "order-items",
+    "parentEntity": "order",
+    "parentEntityId": "ord-9981"
+  },
+  {
+    "entity": "order-item",
+    "entityId": "item-002",
+    "screen": "order-detail",
+    "section": "order-items",
+    "parentEntity": "order",
+    "parentEntityId": "ord-9981"
+  },
+  {
+    "entity": "shipment",
+    "entityId": "ship-771",
+    "screen": "order-detail",
+    "section": "shipping-details",
+    "parentEntity": "order",
+    "parentEntityId": "ord-9981"
+  }
+]
+*/
+```
+
+<Callout type="note">
+getVisibleEntities() only returns entities whose containers are currently in the DOM and visible (not hidden with display:none or visibility:hidden). Entities inside collapsed sections or closed modals are not included until those containers are expanded.
+</Callout>
+
+## How AI Agents Use Entity Context
+
+Entity context is critical for disambiguation. Consider a CRM with multiple deals open in different panels. Without entity IDs, a "save-deal" action is ambiguous. With entity IDs, the agent knows exactly which deal it is saving.
+
+```ts
+async function updateDealValue(dealId: string, newValue: number) {
+  // Step 1: Confirm the deal is visible
+  const entities = window.__CORTEX_UI__.getVisibleEntities();
+  const deal = entities.find(e => e.entity === "deal" && e.entityId === dealId);
+
+  if (!deal) {
+    throw new Error(`Deal ${dealId} is not visible on the current screen`);
+  }
+
+  // Step 2: Locate the value field scoped to this deal's container
+  const dealContainer = document.querySelector(
+    `[data-ai-entity="deal"][data-ai-entity-id="${dealId}"]`
+  );
+  const valueField = dealContainer?.querySelector('[data-ai-id="deal-value-field"]');
+
+  if (!valueField) {
+    throw new Error(`deal-value-field not found in deal ${dealId}`);
+  }
+
+  // Step 3: Update the field
+  (valueField as HTMLInputElement).value = String(newValue);
+  valueField.dispatchEvent(new Event("input", { bubbles: true }));
+  valueField.dispatchEvent(new Event("blur", { bubbles: true }));
+
+  // Step 4: Save
+  const saveButton = dealContainer?.querySelector('[data-ai-action="save-deal"]');
+  saveButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+}
+```
+
+<Callout type="important">
+Always scope DOM queries to the entity container rather than querying the entire document. document.querySelector('[data-ai-id="save-deal"]') is dangerous on a page with multiple deals — it will return only the first match. Use the entity container element as the search root.
+</Callout>
+
+## Full Example: Order Detail Page
+
+```html
+<div
+  data-ai-screen="order-detail"
+  data-ai-entity="order"
+  data-ai-entity-id="ord-9981"
+>
+
+  <section data-ai-section="order-header">
+    <h1>Order #9981</h1>
+    <span
+      data-ai-role="status"
+      data-ai-id="order-status"
+      data-ai-state="success"
+    >Delivered</span>
+    <button
+      data-ai-role="action"
+      data-ai-id="reorder-ord-9981"
+      data-ai-action="reorder"
+      data-ai-state="idle"
+    >Reorder</button>
+    <button
+      data-ai-role="action"
+      data-ai-id="cancel-order-ord-9981"
+      data-ai-action="cancel-order"
+      data-ai-state="disabled"
+      disabled
+    >Cancel Order</button>
+  </section>
+
+  <section data-ai-section="order-items">
+    <table data-ai-role="table" data-ai-id="order-items-table">
+      <thead>
+        <tr><th>Item</th><th>Qty</th><th>Price</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        <tr data-ai-entity="order-item" data-ai-entity-id="item-001">
+          <td>Blue Widget</td>
+          <td>2</td>
+          <td>$29.98</td>
+          <td>
+            <button
+              data-ai-role="action"
+              data-ai-id="return-item-001"
+              data-ai-action="return-item"
+              data-ai-state="idle"
+            >Return</button>
+          </td>
+        </tr>
+        <tr data-ai-entity="order-item" data-ai-entity-id="item-002">
+          <td>Red Gadget</td>
+          <td>1</td>
+          <td>$49.99</td>
+          <td>
+            <button
+              data-ai-role="action"
+              data-ai-id="return-item-002"
+              data-ai-action="return-item"
+              data-ai-state="idle"
+            >Return</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+</div>
+```
+
+## Related
+
+- [Screen structure](/docs/ai-contract/screen-structure)
+- [data-ai-* attributes](/docs/ai-contract/attributes)
+- [Actions reference](/docs/ai-contract/actions)
+- [Best practices](/docs/ai-contract/best-practices)

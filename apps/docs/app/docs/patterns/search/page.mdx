@@ -1,0 +1,81 @@
+# Search Flow Pattern
+
+## Problem
+
+Search involves three states: empty, searching, and results. AI agents need to know which state they're in, how to trigger a search, and how to select a result.
+
+## Solution
+
+Annotate the search input, trigger, and results container with AI contract attributes.
+
+```tsx
+function UserSearch() {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<User[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  const search = async () => {
+    setSearching(true);
+    const res = await searchUsers(query);
+    setResults(res);
+    setSearching(false);
+  };
+
+  return (
+    <section data-ai-section="user-search">
+      <div>
+        <input
+          data-ai-role="field"
+          data-ai-id="search-query"
+          data-ai-field-type="text"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Search users..."
+        />
+        <button
+          data-ai-role="action"
+          data-ai-id="search-users"
+          data-ai-action="search-users"
+          data-ai-state={searching ? 'loading' : 'idle'}
+          onClick={search}
+        >
+          Search
+        </button>
+      </div>
+
+      <div
+        data-ai-role="table"
+        data-ai-id="search-results"
+        data-ai-state={searching ? 'loading' : results.length ? 'idle' : 'idle'}
+      >
+        {results.map(user => (
+          <div
+            key={user.id}
+            data-ai-entity="user"
+            data-ai-entity-id={user.id}
+          >
+            <span>{user.name}</span>
+            <button
+              data-ai-role="action"
+              data-ai-id={`select-user-${user.id}`}
+              data-ai-action="select-user"
+              data-ai-state="idle"
+            >
+              Select
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+```
+
+<Callout type="note">
+Each result row must have `data-ai-entity` and `data-ai-entity-id`. This lets the agent understand what it is selecting and reference it later.
+</Callout>
+
+## Related
+
+- [CRUD flows](/docs/patterns/crud)
+- [DataTable component](/docs/components/data-table)

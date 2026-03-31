@@ -1,0 +1,29 @@
+:root {
+  --play-bg: #f2f6f0;
+  --play-surface: rgba(252, 255, 250, 0.88);
+  --play-ink: #102217;
+  --play-muted: #4f6355;
+  --play-line: rgba(16, 34, 23, 0.12);
+  --play-accent: #1f7a55;
+  --play-accent-soft: rgba(31, 122, 85, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top right, rgba(31, 122, 85, 0.16), transparent 24rem),
+    linear-gradient(180deg, #f9fcf6 0%, var(--play-bg) 100%);
+  color: var(--play-ink);
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}

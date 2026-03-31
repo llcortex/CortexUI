@@ -1,0 +1,304 @@
+# Project Setup
+
+After [installing the CortexUI packages](/docs/getting-started/installation), you need to configure your application to activate the full CortexUI system. This involves two required steps and several optional steps.
+
+**Required:**
+1. Wrap your app with `CortexProvider` to initialize the runtime
+2. Set up screen context so components know which screen they live on
+
+**Optional:**
+- Configure the theme and token system
+- Set up error boundaries for graceful degradation
+- Configure the runtime for custom AI integrations
+
+## Step 1: The CortexProvider
+
+The `CortexProvider` does several things when it mounts:
+- Installs the `window.__CORTEX_UI__` runtime object
+- Sets up the MutationObserver that tracks component registration/unregistration
+- Provides theme context to descendant components
+- Provides the default screen context
+
+Wrap your entire application with it:
+
+```tsx
+import { CortexProvider } from "@cortexui/runtime";
+
+export default function App({ children }: { children: React.ReactNode }) {
+  return (
+    <CortexProvider>
+      {children}
+    </CortexProvider>
+  );
+}
+```
+
+<Callout type="important">
+`CortexProvider` must be the outermost wrapper in your application — it needs to observe the entire component tree. If you nest it inside another provider, components rendered outside `CortexProvider` will not be registered with the runtime.
+</Callout>
+
+### Provider Options
+
+The `CortexProvider` accepts optional configuration:
+
+```tsx
+<CortexProvider
+  // Optional: default screen for components that don't specify one
+  defaultScreen="home"
+  // Optional: enable verbose runtime logging in development
+  debug={process.env.NODE_ENV === "development"}
+  // Optional: theme override
+  theme="light"
+  // Optional: called whenever any component state changes
+  onStateChange={(event) => {
+    console.log(`[CortexUI] ${event.aiId} → ${event.newState}`);
+  }}
+>
+  {children}
+</CortexProvider>
+```
+
+## Step 2: Screen Context
+
+Screen context tells CortexUI components which screen they are currently on. This information is propagated to `data-ai-screen` on every descendant component, enabling agents to query elements by screen.
+
+You set screen context using the `useScreen` hook or the `ScreenProvider` component:
+
+### With useScreen hook
+
+```tsx
+import { useScreen } from "@cortexui/runtime";
+
+function SettingsPage() {
+  useScreen("settings"); // Sets data-ai-screen="settings" on all descendants
+
+  return (
+    <div>
+      <h1>Settings</h1>
+      {/* All CortexUI components here will have data-ai-screen="settings" */}
+      <ProfileForm />
+      <SecuritySettings />
+    </div>
+  );
+}
+```
+
+### With ScreenProvider component
+
+```tsx
+import { ScreenProvider } from "@cortexui/runtime";
+
+function SettingsPage() {
+  return (
+    <ScreenProvider screen="settings">
+      <h1>Settings</h1>
+      <ProfileForm />
+      <SecuritySettings />
+    </ScreenProvider>
+  );
+}
+```
+
+### Section Context
+
+For finer-grained grouping within a screen, use `SectionProvider`:
+
+```tsx
+import { ScreenProvider, SectionProvider } from "@cortexui/runtime";
+
+function SettingsPage() {
+  return (
+    <ScreenProvider screen="settings">
+      <SectionProvider section="profile">
+        <ProfileForm />
+      </SectionProvider>
+      <SectionProvider section="security">
+        <SecuritySettings />
+      </SectionProvider>
+    </ScreenProvider>
+  );
+}
+```
+
+Components in `ProfileForm` will have `data-ai-screen="settings" data-ai-section="profile"`. Components in `SecuritySettings` will have `data-ai-screen="settings" data-ai-section="security"`.
+
+## Next.js Setup
+
+### App Router (Next.js 13+)
+
+In Next.js App Router, providers that use browser APIs must be Client Components. Create a dedicated providers file:
+
+```tsx
+// app/providers.tsx
+"use client";
+
+import { CortexProvider } from "@cortexui/runtime";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <CortexProvider debug={process.env.NODE_ENV === "development"}>
+      {children}
+    </CortexProvider>
+  );
+}
+```
+
+Then use it in your root layout:
+
+```tsx
+// app/layout.tsx
+import { Providers } from "./providers";
+import "@cortexui/components/styles.css";
+
+export default function RootLayout({
+  children
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
+```
+
+For individual route pages, set the screen context in the page component (which can be a Server Component — but the screen provider must be a Client Component if it uses hooks):
+
+```tsx
+// app/settings/screen-wrapper.tsx
+"use client";
+
+import { ScreenProvider } from "@cortexui/runtime";
+
+export function SettingsScreenWrapper({
+  children
+}: {
+  children: React.ReactNode;
+}) {
+  return <ScreenProvider screen="settings">{children}</ScreenProvider>;
+}
+```
+
+```tsx
+// app/settings/page.tsx
+import { SettingsScreenWrapper } from "./screen-wrapper";
+
+export default function SettingsPage() {
+  return (
+    <SettingsScreenWrapper>
+      <h1>Settings</h1>
+      <ProfileForm />
+    </SettingsScreenWrapper>
+  );
+}
+```
+
+### Pages Router (Next.js 12 and earlier)
+
+In the Pages Router, wrap your app in `_app.tsx`:
+
+```tsx
+// pages/_app.tsx
+import type { AppProps } from "next/app";
+import { CortexProvider } from "@cortexui/runtime";
+import "@cortexui/components/styles.css";
+
+export default function App({ Component, pageProps }: AppProps) {
+  return (
+    <CortexProvider>
+      <Component {...pageProps} />
+    </CortexProvider>
+  );
+}
+```
+
+For per-page screen context, use `getLayout` pattern or wrap each page individually.
+
+## Vite + React Setup
+
+```tsx
+// src/main.tsx
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { CortexProvider } from "@cortexui/runtime";
+import "@cortexui/components/styles.css";
+import App from "./App";
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <CortexProvider debug={import.meta.env.DEV}>
+      <App />
+    </CortexProvider>
+  </React.StrictMode>
+);
+```
+
+Then in your page-level components:
+
+```tsx
+// src/pages/Dashboard.tsx
+import { ScreenProvider } from "@cortexui/runtime";
+
+export function Dashboard() {
+  return (
+    <ScreenProvider screen="dashboard">
+      <h1>Dashboard</h1>
+      {/* components here get data-ai-screen="dashboard" */}
+    </ScreenProvider>
+  );
+}
+```
+
+## Verifying Your Setup
+
+After completing setup, verify the runtime is active:
+
+1. Open your browser and navigate to your application
+2. Open the browser console
+3. Run:
+
+```javascript
+window.__CORTEX_UI__
+```
+
+You should see the runtime object:
+
+```javascript
+{
+  getAvailableActions: ƒ,
+  getAction: ƒ,
+  trigger: ƒ,
+  getElementByAiId: ƒ,
+  getElementsByScreen: ƒ,
+  getEntityContext: ƒ,
+  onStateChange: ƒ,
+  version: "1.0.0"
+}
+```
+
+If you see `undefined`, ensure `CortexProvider` is mounted before any interactive components render.
+
+<Callout type="tip">
+In development mode (`debug={true}`), the runtime logs all component registrations, state changes, and action triggers to the browser console. This is helpful for confirming your setup is working correctly and for understanding what the AI contract looks like for each screen.
+</Callout>
+
+## Required vs Optional Configuration
+
+| Configuration | Required | Description |
+|---|---|---|
+| `CortexProvider` wrapper | ✅ Required | Activates the runtime |
+| Screen context | ✅ Required for `data-ai-screen` | Per-screen context |
+| Section context | Optional | Finer grouping within screens |
+| Theme configuration | Optional | Custom visual theme |
+| Debug mode | Optional | Verbose logging in development |
+| `onStateChange` callback | Optional | Global state change observer |
+| `@cortexui/tokens` CSS import | Optional | Design token CSS variables |
+
+## Next Steps
+
+- [Build your first component](/docs/getting-started/first-component)
+- [React integration patterns](/docs/getting-started/react)
+- [Vanilla JS usage](/docs/getting-started/vanilla-js)

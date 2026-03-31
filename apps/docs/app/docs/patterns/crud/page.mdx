@@ -1,0 +1,62 @@
+# CRUD Flows Pattern
+
+## Overview
+
+CRUD (Create, Read, Update, Delete) is the most common pattern in business applications. CortexUI provides a consistent annotation pattern for each operation.
+
+## List View
+
+```html
+<div data-ai-screen="users-list" data-ai-entity="user">
+  <section data-ai-section="toolbar">
+    <button
+      data-ai-role="action"
+      data-ai-id="create-user"
+      data-ai-action="create-user"
+      data-ai-state="idle"
+    >New User</button>
+  </section>
+
+  <section data-ai-section="users-table">
+    <table data-ai-role="table" data-ai-id="users-table">
+      <tbody>
+        <tr data-ai-entity="user" data-ai-entity-id="user-1">
+          <td>Jane Doe</td>
+          <td>
+            <button data-ai-role="action" data-ai-id="edit-user-1" data-ai-action="edit-user" data-ai-state="idle">Edit</button>
+            <button data-ai-role="action" data-ai-id="delete-user-1" data-ai-action="delete-user" data-ai-state="idle">Delete</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+```
+
+## Detail View
+
+```html
+<div data-ai-screen="user-detail" data-ai-entity="user" data-ai-entity-id="user-1">
+  <section data-ai-section="actions">
+    <button data-ai-role="action" data-ai-id="edit-user" data-ai-action="edit-user" data-ai-state="idle">Edit</button>
+    <button data-ai-role="action" data-ai-id="delete-user" data-ai-action="delete-user" data-ai-state="idle">Delete</button>
+  </section>
+  <section data-ai-section="user-details">
+    <!-- user data -->
+  </section>
+</div>
+```
+
+<Callout type="tip">
+The entity ID in row-level actions (`delete-user-1`, `edit-user-1`) and the screen-level entity-id should always match. This makes it unambiguous which entity an action targets.
+</Callout>
+
+## Delete with Confirmation
+
+Always pair Delete actions with ConfirmDialog. See [Confirmation flows](/docs/patterns/confirmation).
+
+## Related
+
+- [Confirmation flows](/docs/patterns/confirmation)
+- [DataTable component](/docs/components/data-table)
+- [Entity modeling](/docs/ai-contract/entity-modeling)

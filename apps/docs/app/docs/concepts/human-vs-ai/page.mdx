@@ -1,0 +1,206 @@
+# Human vs AI: How UI Is Read
+
+A user interface was originally a contract between a designer and a human. It was visual, intuitive, and built on shared cultural conventions — blue underlined text means a link, a spinner means loading, a red banner means something went wrong. Humans are extraordinarily good at parsing these signals. They use peripheral vision, pattern recognition, and learned context to navigate even poorly designed interfaces with ease.
+
+AI agents have none of that.
+
+This page explores the fundamental gap between how humans read UI and how AI agents read UI today — and why bridging that gap requires a different kind of design thinking entirely.
+
+## How Humans Read UI
+
+When a human looks at a web page, they do not process it element by element. They perceive it holistically:
+
+- **Visual hierarchy** — Large text is a heading, small gray text is secondary information
+- **Spatial reasoning** — A button in the bottom-right of a form is likely the primary action
+- **Color semantics** — Green means success, red means error, gray means disabled
+- **Learned conventions** — A hamburger icon opens a menu, a magnifying glass opens search
+- **Contextual inference** — A page titled "Edit Profile" with a text field labeled "First Name" is a profile editing form
+
+Humans apply all of this reasoning instantly and in parallel. The interface does not need to explain itself — the visual language does the explaining. A designer can leave an enormous amount implicit because they can trust the human reader to fill in the gaps.
+
+## How AI Agents Read UI Today
+
+Without CortexUI or similar semantic layers, an AI agent — whether it's a browser automation script, an LLM-powered copilot, or a testing framework — reads UI through one of three mechanisms:
+
+**1. DOM traversal**
+The agent walks the HTML tree, looking at tag names, class names, and text content. It might search for a `<button>` element containing the text "Save", or an `<input>` with `placeholder="Email address"`.
+
+**2. Text matching**
+The agent searches for specific strings on the page. "Find an element that says Submit", "click the button labeled Delete Account". This works until the text changes — localization, copywriting updates, or A/B tests instantly break these selectors.
+
+**3. Coordinate clicking**
+Vision-capable AI models identify elements by their visual position. "Click the blue button in the lower right". This is the most fragile approach — any layout change, viewport size change, or style update defeats it.
+
+<Callout type="warning">
+None of these approaches are reliable at scale. DOM-based selectors break on refactors. Text-matching breaks on copy changes. Coordinate clicking breaks on responsive layouts. All three require constant maintenance and produce high false-negative rates in production.
+</Callout>
+
+## Why the Gap Exists and What It Costs
+
+The gap exists because UI was never designed to be read by machines. Every design decision — color, position, text, animation — is aimed at human perception and human intuition. Machines have to reverse-engineer meaning from a signal that was not intended for them.
+
+The cost of this gap is significant:
+
+- **Automation brittleness** — Browser automation scripts in production environments break weekly. Teams spend enormous effort maintaining selectors rather than shipping features.
+- **AI agent failures** — LLM-powered agents that interact with UI through vision or DOM parsing fail unpredictably. The same action succeeds in one session and fails in the next.
+- **Testing instability** — End-to-end test suites degrade over time as the UI evolves. Tests that were passing last month silently break after a design update.
+- **AI copilot limitations** — AI assistants embedded in products cannot reliably perform multi-step UI operations because each step is a guessing game.
+
+## The Dual-Layer Mental Model
+
+CortexUI's answer to this gap is not to change how the UI looks to humans. It is to add a second layer of meaning that is designed exclusively for machines.
+
+Think of it as two simultaneous readings of the same element:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   The Human Reading:          The AI Reading:              │
+│                                                             │
+│   "A blue Save button         data-ai-id="profile-save"    │
+│    in the top right of        data-ai-role="action"        │
+│    the form. It's             data-ai-action="save-profile" │
+│    currently active and       data-ai-state="idle"         │
+│    ready to click."           data-ai-screen="settings"    │
+│                               data-ai-section="profile"    │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Both readings are simultaneously valid. The button still looks like a button to a human. The visual design is unchanged. But now there is a second reading — a machine-readable declaration of identity, role, action, and state — that an AI agent can consume directly without inference or guesswork.
+
+## Side-by-Side: A Form Seen by Human vs AI
+
+Consider a simple user registration form. Here is what each audience sees:
+
+**What the human sees:**
+- A form with three labeled fields: Name, Email, Password
+- A "Create Account" button at the bottom
+- A checkbox for agreeing to terms
+- The button is styled in brand blue, the checkbox is required
+
+**What an AI agent sees without CortexUI:**
+```html
+<form>
+  <input type="text" placeholder="Your name" />
+  <input type="email" placeholder="Email address" />
+  <input type="password" placeholder="Create a password" />
+  <input type="checkbox" />
+  <span>I agree to the Terms of Service</span>
+  <button class="btn btn-primary">Create Account</button>
+</form>
+```
+
+The agent has to guess: which input is the name? Which is email? Is the checkbox required? What does clicking the button actually do — is it registration or login? None of this is explicit.
+
+**What an AI agent sees with CortexUI:**
+```html
+<form
+  data-ai-role="form"
+  data-ai-id="registration-form"
+  data-ai-screen="register"
+  data-ai-action="register-user"
+>
+  <input
+    data-ai-role="field"
+    data-ai-id="reg-name"
+    data-ai-field-type="text"
+    data-ai-required="true"
+    type="text"
+    placeholder="Your name"
+  />
+  <input
+    data-ai-role="field"
+    data-ai-id="reg-email"
+    data-ai-field-type="email"
+    data-ai-required="true"
+    type="email"
+    placeholder="Email address"
+  />
+  <input
+    data-ai-role="field"
+    data-ai-id="reg-password"
+    data-ai-field-type="password"
+    data-ai-required="true"
+    type="password"
+    placeholder="Create a password"
+  />
+  <input
+    data-ai-role="field"
+    data-ai-id="reg-terms"
+    data-ai-field-type="checkbox"
+    data-ai-required="true"
+    type="checkbox"
+  />
+  <button
+    data-ai-role="action"
+    data-ai-id="reg-submit"
+    data-ai-action="register-user"
+    data-ai-state="idle"
+  >
+    Create Account
+  </button>
+</form>
+```
+
+Now the agent knows exactly what each field is for, which fields are required, and what action the button will perform. No guessing. No inference. No fragile heuristics.
+
+## The Key Insight: Adding a Machine Layer, Not Removing the Human Layer
+
+The most important thing to understand about CortexUI's approach is that it is **additive**, not substitutive.
+
+The UI still looks the same to humans. The visual design is unchanged. The blue button is still blue. The form still has the same layout. The human experience is not degraded in any way — if anything, it is improved, because the discipline of explicitly declaring roles and actions tends to produce more semantically coherent UIs.
+
+What CortexUI adds is a machine layer — a parallel representation of the interface that is legible to AI agents, automation frameworks, testing tools, and monitoring systems. The same DOM element carries both representations simultaneously. There is no runtime cost. There is no duplicate DOM.
+
+<Callout type="important">
+AI-native UI does not remove the human layer. It adds a machine layer. The same element is read differently by different audiences — and CortexUI makes both readings explicit, stable, and reliable.
+</Callout>
+
+## The Contrast in Practice
+
+Here is the contrast rendered as code for a button that saves a user's profile:
+
+**Without CortexUI — AI has to guess:**
+```html
+<!-- AI must infer meaning from tag, class, and text -->
+<button class="btn btn-primary btn-sm">
+  Save Changes
+</button>
+```
+
+An agent trying to click "the save button" might match this — until the copy changes to "Save Profile", or the class names get refactored, or the button is duplicated elsewhere on the page.
+
+**With CortexUI — AI has a stable contract:**
+```html
+<!-- AI reads a deterministic, named contract -->
+<button
+  data-ai-id="profile-save-btn"
+  data-ai-role="action"
+  data-ai-action="save-profile"
+  data-ai-state="idle"
+  data-ai-screen="settings"
+  data-ai-section="profile-form"
+  class="btn btn-primary btn-sm"
+>
+  Save Changes
+</button>
+```
+
+The copy can change. The classes can change. The layout can change. The `data-ai-action="save-profile"` identifier does not change — it is a stable part of the contract between the UI and anyone (human or machine) who consumes it.
+
+## Summary
+
+- Humans read UI through vision, convention, and contextual inference
+- AI agents today use DOM traversal, text matching, and coordinate clicking — all of which are brittle
+- The gap between these two reading modes is the source of significant automation failures
+- CortexUI bridges the gap by adding a machine-readable semantic layer to every element
+- This layer is additive — human experience is unchanged, machine reliability is dramatically improved
+- The same element now carries two simultaneous readings: visual for humans, semantic for machines
+
+## Related
+
+- [What is CortexUI](/docs/introduction/what-is-cortexui)
+- [UI as API — the contract metaphor](/docs/concepts/ui-as-api)
+- [Deterministic interfaces](/docs/concepts/deterministic)
+- [AI Contract Overview](/docs/ai-contract/overview)

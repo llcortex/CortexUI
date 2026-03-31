@@ -1,0 +1,227 @@
+# UI as API
+
+When you design a REST API, you make explicit decisions about every interaction: what endpoint exists, what parameters it accepts, what it returns when it succeeds, and what it returns when it fails. These decisions form a contract — a stable, documented, testable specification that any caller can rely on regardless of how the underlying implementation changes.
+
+Now ask yourself: why doesn't your UI have the same contract?
+
+## APIs Have Contracts
+
+A well-designed REST API endpoint looks something like this:
+
+```
+POST /api/orders
+Content-Type: application/json
+
+{
+  "userId": "usr_01HXYZ",
+  "items": [...],
+  "shippingAddress": {...}
+}
+
+Response 201:
+{
+  "orderId": "ord_01HABC",
+  "status": "pending",
+  "estimatedDelivery": "2024-03-15"
+}
+
+Response 422:
+{
+  "error": "validation_failed",
+  "field": "shippingAddress.zipCode",
+  "message": "Invalid postal code"
+}
+```
+
+Everything is declared: the path, the inputs, the success response, the error response. Any client — whether it's a mobile app, a third-party integration, or an automated test — can rely on this contract. If the contract changes without a version bump, that is considered a breaking change and treated accordingly.
+
+UI contracts have never been this explicit. And that is a problem.
+
+## UI Should Have Contracts Too
+
+Every meaningful UI interaction has the same structure as an API call:
+
+- **The endpoint**: the action being performed (save profile, submit order, delete item)
+- **The parameters**: the fields being filled in (name, email, quantity, address)
+- **The success response**: what happens when it works (navigation to confirmation, state change to success)
+- **The error response**: what happens when it fails (validation message, error state, retry prompt)
+
+The difference is that in traditional UI design, none of this is declared explicitly. The "endpoint" is a button with some text. The "parameters" are form fields with placeholder text. The "response" is whatever happens to the DOM after submission. There is no machine-readable specification.
+
+<Callout type="important">
+CortexUI treats every UI interaction as an API call with a declared contract. The action has a stable identifier. The inputs have declared types and requirements. The outcomes are tracked as explicit state transitions.
+</Callout>
+
+## The Parallel Between REST API Design and CortexUI Design
+
+The correspondence is direct:
+
+| REST API Concept | CortexUI Equivalent |
+|---|---|
+| Endpoint path (`POST /orders`) | `data-ai-action="submit-order"` |
+| Parameter name (`userId`) | `data-ai-id="order-user-id"` |
+| Parameter type (`string`) | `data-ai-field-type="text"` |
+| Required parameter | `data-ai-required="true"` |
+| Current status | `data-ai-state="idle\|loading\|success\|error"` |
+| Response body | `data-ai-result="success"` or `data-ai-result="error:Invalid zip"` |
+| Endpoint namespace (`/orders/...`) | `data-ai-screen="checkout"`, `data-ai-section="shipping"` |
+| Resource type (`Order`) | `data-ai-entity="order"` |
+| Resource ID | `data-ai-entity-id="ord_01HABC"` |
+
+When you annotate your UI with CortexUI attributes, you are essentially writing an OpenAPI spec directly into your HTML. The interface self-documents its contract.
+
+## Thinking About Your UI as a Set of Callable Endpoints
+
+The practical shift this creates is in how you think during design. Instead of starting with the visual layout, you start with the action vocabulary:
+
+**Traditional UI design thinking:**
+> "I need a form with three columns. The submit button should be primary blue and right-aligned. On mobile, the columns stack vertically."
+
+**UI-as-API design thinking:**
+> "This screen exposes a `register-user` action. It requires `user-email` (email, required), `user-password` (password, required), and `user-name` (text, optional). On success it navigates to `dashboard`. On error it shows a field-level validation message."
+
+The visual design follows from the action design. The layout, colors, and responsiveness are still important — but they are downstream of the explicit declaration of what the UI does and what contract it exposes.
+
+## Example: Form Submission as an API Call
+
+Consider a checkout form. As an API, it would look like this:
+
+```
+POST /api/checkout
+{
+  "email": "string, required",
+  "cardNumber": "string, required",
+  "cardExpiry": "string, required",
+  "cardCvc": "string, required",
+  "billingZip": "string, required"
+}
+
+Responses:
+201 → { "orderId": "...", redirect: "/confirmation" }
+422 → { "error": "card_declined", "message": "..." }
+402 → { "error": "insufficient_funds", "message": "..." }
+```
+
+As a CortexUI form, that same contract is expressed in HTML:
+
+```html
+<form
+  data-ai-role="form"
+  data-ai-id="checkout-form"
+  data-ai-action="submit-checkout"
+  data-ai-state="idle"
+  data-ai-screen="checkout"
+>
+  <input
+    data-ai-role="field"
+    data-ai-id="checkout-email"
+    data-ai-field-type="email"
+    data-ai-required="true"
+    type="email"
+  />
+  <input
+    data-ai-role="field"
+    data-ai-id="checkout-card-number"
+    data-ai-field-type="text"
+    data-ai-required="true"
+    type="text"
+  />
+  <input
+    data-ai-role="field"
+    data-ai-id="checkout-card-expiry"
+    data-ai-field-type="text"
+    data-ai-required="true"
+    type="text"
+  />
+  <input
+    data-ai-role="field"
+    data-ai-id="checkout-card-cvc"
+    data-ai-field-type="text"
+    data-ai-required="true"
+    type="text"
+  />
+  <input
+    data-ai-role="field"
+    data-ai-id="checkout-billing-zip"
+    data-ai-field-type="text"
+    data-ai-required="true"
+    type="text"
+  />
+  <button
+    data-ai-role="action"
+    data-ai-id="checkout-submit-btn"
+    data-ai-action="submit-checkout"
+    data-ai-state="idle"
+  >
+    Place Order
+  </button>
+</form>
+```
+
+An AI agent can now read this form's contract with a single call:
+
+```javascript
+const schema = window.__CORTEX_UI__.getFormSchema("checkout-form");
+// Returns:
+// {
+//   id: "checkout-form",
+//   action: "submit-checkout",
+//   state: "idle",
+//   fields: [
+//     { id: "checkout-email", type: "email", required: true },
+//     { id: "checkout-card-number", type: "text", required: true },
+//     { id: "checkout-card-expiry", type: "text", required: true },
+//     { id: "checkout-card-cvc", type: "text", required: true },
+//     { id: "checkout-billing-zip", type: "text", required: true }
+//   ],
+//   submitAction: "submit-checkout"
+// }
+```
+
+The AI agent does not need to scrape the page, read labels, or guess field purposes. The form has published its own API spec.
+
+## Why This Changes How You Design Components
+
+The UI-as-API model changes component design in three important ways:
+
+**1. Actions are first-class decisions, not afterthoughts.**
+You can no longer skip the question "what does clicking this button actually do?" because you have to name the action explicitly. `data-ai-action="submit-order"` forces clarity. Vague actions get named. Important actions get distinguished from unimportant ones.
+
+**2. State must be tracked, not implied.**
+An API endpoint does not silently change state. It returns a response. Similarly, a UI action must have an explicit state: `idle` before the call, `loading` during, `success` or `error` after. You cannot leave state implicit — it must be declared.
+
+**3. Inputs must be typed and required/optional.**
+Just as API parameters have types and optionality, form fields must declare what they accept. This forces better field design: ambiguous fields get clarified, optional fields get distinguished from required ones.
+
+<Callout type="note">
+The discipline of writing a UI-as-API contract often improves the UI itself. When you are forced to name every action and declare every field's type and requirements, you discover ambiguities and inconsistencies that would otherwise ship silently.
+</Callout>
+
+## The Benefits: Testability, Reliability, AI Operability
+
+Treating UI as API produces three major benefits:
+
+**Testability**
+Tests can target stable, semantic contracts instead of fragile selectors. Instead of `cy.get('.btn-primary').click()`, you write `cy.get('[data-ai-action="submit-checkout"]').click()`. The action name does not change when the button is restyled. Tests become resilient to visual refactors.
+
+**Reliability**
+AI agents interacting with the UI can do so with the same reliability as HTTP clients calling a REST API. The contract is stable. The agent knows what to expect. Interactions succeed deterministically.
+
+**AI Operability**
+LLM-powered copilots, test generators, and automation frameworks can read your UI's contract and operate on it without being trained on your specific DOM structure. The interface self-describes its capabilities.
+
+## Summary
+
+- REST APIs are valuable because they expose stable, explicit contracts — endpoints, parameters, responses
+- UI interactions have the same structure but have historically lacked explicit contracts
+- CortexUI closes this gap by treating every UI interaction as an API call with a declared contract
+- The mapping is direct: actions map to endpoints, fields map to parameters, state maps to response status
+- This changes how you design components — actions, state, and field types become first-class design decisions
+- The result is a more testable, reliable, and AI-operable interface
+
+## Related
+
+- [Human vs AI — how UI is read differently](/docs/concepts/human-vs-ai)
+- [Action-driven design](/docs/concepts/action-driven)
+- [Form schema reference](/docs/ai-contract/form-schema)
+- [Events reference](/docs/ai-contract/events)
