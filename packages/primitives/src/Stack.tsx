@@ -48,5 +48,7 @@ const StackImpl = <C extends ElementType = "div">(
   );
 };
 
-export const Stack = forwardRef(StackImpl) as StackComponent;
-Stack.displayName = "Stack";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const StackWithRef = forwardRef(StackImpl as any) as unknown as StackComponent & { displayName?: string };
+StackWithRef.displayName = "Stack";
+export const Stack = StackWithRef;

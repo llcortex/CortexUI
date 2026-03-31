@@ -33,7 +33,7 @@ export interface SurfaceDescriptor {
   readonly tokenNamespace: string;
 }
 
-interface DialogBaseOwnProps extends PrimitiveStyleProps {
+export interface DialogBaseOwnProps extends PrimitiveStyleProps {
   readonly open: boolean;
   readonly onOpenChange?: (open: boolean) => void;
   readonly ariaLabel?: string;
@@ -56,18 +56,16 @@ export interface PortalProps {
   readonly container?: Element | DocumentFragment | null;
 }
 
-export interface InputBaseProps
-  extends Omit<ComponentPropsWithoutRef<"input">, "size">,
-    PrimitiveStyleProps {
-  readonly invalid?: boolean;
-}
+export type InputBaseProps = Omit<ComponentPropsWithoutRef<"input">, "size"> &
+  PrimitiveStyleProps & {
+    readonly invalid?: boolean;
+  };
 
-export interface ButtonBaseProps
-  extends ComponentPropsWithoutRef<"button">,
-    PrimitiveStyleProps {
-  readonly loading?: boolean;
-  readonly loadingLabel?: string;
-}
+export type ButtonBaseProps = ComponentPropsWithoutRef<"button"> &
+  PrimitiveStyleProps & {
+    readonly loading?: boolean;
+    readonly loadingLabel?: string;
+  };
 
 export interface StackOwnProps extends PrimitiveBoxProps {
   readonly direction?: "row" | "column";

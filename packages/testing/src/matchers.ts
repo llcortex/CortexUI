@@ -27,7 +27,8 @@ export const cortexMatchers = {
     };
   },
   toPassAccessibilityChecks(received: ElementLike) {
-    const result = runAccessibilityChecks(received);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = runAccessibilityChecks(received as any);
     return {
       message: () =>
         result.valid

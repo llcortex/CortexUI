@@ -14,7 +14,7 @@ export const primitiveVars = {
   surface: "--cortexui-surface"
 } as const;
 
-export const primitiveTheme: CSSProperties = {
+export const primitiveTheme = {
   [primitiveVars.surface]: colorTokens.values.surface,
   [primitiveVars.foreground]: colorTokens.values.accent,
   [primitiveVars.borderColor]: "rgba(17, 24, 39, 0.16)",
@@ -24,7 +24,7 @@ export const primitiveTheme: CSSProperties = {
   [primitiveVars.successColor]: "#15803d",
   [primitiveVars.radius]: "12px",
   [primitiveVars.spacing]: "0.75rem"
-};
+} as CSSProperties;
 
 export const visuallyHiddenStyle: CSSProperties = {
   border: 0,

@@ -28,7 +28,8 @@ export function runComponentComplianceChecks(
   options: ComplianceCheckOptions = {}
 ): ComplianceCheckResult {
   const contract = validateAIAttributes(element);
-  const accessibility = runAccessibilityChecks(element, options);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const accessibility = runAccessibilityChecks(element as any, options);
   const metadata = extractAIAttributes(element);
   const errors = [...contract.errors, ...accessibility.errors];
 

@@ -58,5 +58,7 @@ const TextImpl = <C extends ElementType = "span">(
   </Box>
 );
 
-export const Text = forwardRef(TextImpl) as TextComponent;
-Text.displayName = "Text";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const TextWithRef = forwardRef(TextImpl as any) as unknown as TextComponent & { displayName?: string };
+TextWithRef.displayName = "Text";
+export const Text = TextWithRef;

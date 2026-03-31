@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
 
+.npmrc
+
 # Package manager
 .pnpm-store/
 .npm/

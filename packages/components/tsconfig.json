@@ -3,6 +3,9 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "composite": false,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "rootDir": "src",
     "types": ["node", "react", "react-dom"]
   },

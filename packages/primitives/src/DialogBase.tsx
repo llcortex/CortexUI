@@ -64,7 +64,7 @@ export const DialogBase = forwardRef<HTMLDivElement, DialogBaseProps>(
     },
     ref
   ) => {
-    const fallbackFocusRef = useRef<HTMLDivElement>(null);
+    const fallbackFocusRef = useRef<HTMLDivElement | null>(null);
     const generatedLabelId = useId();
     const lastActiveElementRef = useRef<Element | null>(null);
 

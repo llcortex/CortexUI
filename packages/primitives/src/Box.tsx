@@ -38,5 +38,7 @@ const BoxImpl = <C extends ElementType = "div">(
   );
 };
 
-export const Box = forwardRef(BoxImpl) as BoxComponent;
-Box.displayName = "Box";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const BoxWithRef = forwardRef(BoxImpl as any) as unknown as BoxComponent & { displayName?: string };
+BoxWithRef.displayName = "Box";
+export const Box = BoxWithRef;
