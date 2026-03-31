@@ -42,17 +42,17 @@ importers:
   apps/docs:
     dependencies:
       '@cortexui/ai-contract':
-        specifier: workspace:*
-        version: link:../../packages/ai-contract
+        specifier: 1.1.0
+        version: 1.1.0
       '@cortexui/components':
-        specifier: workspace:*
-        version: link:../../packages/components
+        specifier: 1.1.0
+        version: 1.1.0
       '@cortexui/primitives':
-        specifier: workspace:*
-        version: link:../../packages/primitives
+        specifier: 1.1.0
+        version: 1.1.0
       '@cortexui/runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
+        specifier: 1.1.0
+        version: 1.1.0
       '@mdx-js/loader':
         specifier: ^3.1.1
         version: 3.1.1
@@ -460,6 +460,21 @@ packages:
 
   '@changesets/write@0.4.0':
     resolution: {integrity: sha512-CdTLvIOPiCNuH71pyDu3rA+Q0n65cmAbXnwWH84rKGiFumFzkmHNT8KHTMEchcxN+Kl8I54xGUhJ7l3E7X396Q==}
+
+  '@cortexui/ai-contract@1.1.0':
+    resolution: {integrity: sha512-aJyPgLfcPaB3EWa+mzoTK43eWaKuCKowZOKWqIeFiPOsNYH/fDmabmAgRGE9QAWN8UP1vJD4/Gil3mjLXthLow==}
+
+  '@cortexui/components@1.1.0':
+    resolution: {integrity: sha512-u7//5KJ9rIiEJNwYzdSCKhC9UOjbUphNVr6fP05x7pNkIpKnkq9McxYrOcp8muoywNz3HlGHnTs7ae4mpLfaug==}
+
+  '@cortexui/primitives@1.1.0':
+    resolution: {integrity: sha512-11Wt0HoyzDULF9HqVHmyK1kwNBLi+EaE606VP/2KxegIZ+3f6AstS7mneQQIM3reoI5FKg+BV4Ig1jr0Oy7GRw==}
+
+  '@cortexui/runtime@1.1.0':
+    resolution: {integrity: sha512-iP6MEA4Ksl4LRQGKccDrm29TbQf4+6ThgYSOEmoNp+OGvAlQayB/6+T2MF3fGYVXiI7ZMrF74O0Bbt3D+Q+fhg==}
+
+  '@cortexui/tokens@1.1.0':
+    resolution: {integrity: sha512-czFc0iDysEJ5SvHOPhhWFKS2FpxPUHoWH4HXtSgGqoqH0ejCa9A6ST48GsTvyzgWx8LuU35WizzFFTaWkOWIVQ==}
 
   '@esbuild/aix-ppc64@0.21.5':
     resolution: {integrity: sha512-1SDgH6ZSPTlggy1yI6+Dbkiz8xzpHJEVAlF/AM1tHPLsf5STom9rwtjE4hKAF20FfXXNTFqEYXyJNWh1GiZedQ==}
@@ -3118,6 +3133,28 @@ snapshots:
       fs-extra: 7.0.1
       human-id: 4.1.3
       prettier: 2.8.8
+
+  '@cortexui/ai-contract@1.1.0': {}
+
+  '@cortexui/components@1.1.0':
+    dependencies:
+      '@cortexui/ai-contract': 1.1.0
+      '@cortexui/primitives': 1.1.0
+      '@cortexui/tokens': 1.1.0
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+
+  '@cortexui/primitives@1.1.0':
+    dependencies:
+      '@cortexui/tokens': 1.1.0
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+
+  '@cortexui/runtime@1.1.0':
+    dependencies:
+      '@cortexui/ai-contract': 1.1.0
+
+  '@cortexui/tokens@1.1.0': {}
 
   '@esbuild/aix-ppc64@0.21.5':
     optional: true
