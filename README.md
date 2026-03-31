@@ -64,12 +64,12 @@ An agent no longer needs to guess. It queries the contract, gets a deterministic
 
 | Package | npm | Version | Description |
 |---|---|---|---|
-| `ai-contract` | [`@cortexui/ai-contract`](https://www.npmjs.com/package/@cortexui/ai-contract) | 1.1.0 | `data-ai-*` attribute specification, TypeScript types, and validators |
-| `components` | [`@cortexui/components`](https://www.npmjs.com/package/@cortexui/components) | 1.1.0 | React components with built-in AI contracts |
-| `primitives` | [`@cortexui/primitives`](https://www.npmjs.com/package/@cortexui/primitives) | 1.1.0 | Low-level accessible primitives (Box, Stack, Text, ButtonBase, InputBase, DialogBase) |
-| `runtime` | [`@cortexui/runtime`](https://www.npmjs.com/package/@cortexui/runtime) | 1.1.0 | Browser runtime that installs `window.__CORTEX_UI__` |
-| `testing` | [`@cortexui/testing`](https://www.npmjs.com/package/@cortexui/testing) | 1.1.0 | Contract validation utilities and vitest matchers |
-| `tokens` | [`@cortexui/tokens`](https://www.npmjs.com/package/@cortexui/tokens) | 1.1.0 | Design tokens — colors, spacing, typography, radius |
+| `ai-contract` | [`@cortexui/ai-contract`](https://www.npmjs.com/package/@cortexui/ai-contract) | 1.1.1 | `data-ai-*` attribute specification, TypeScript types, and validators |
+| `components` | [`@cortexui/components`](https://www.npmjs.com/package/@cortexui/components) | 1.1.1 | React components with built-in AI contracts |
+| `primitives` | [`@cortexui/primitives`](https://www.npmjs.com/package/@cortexui/primitives) | 1.1.1 | Low-level accessible primitives (Box, Stack, Text, ButtonBase, InputBase, DialogBase) |
+| `runtime` | [`@cortexui/runtime`](https://www.npmjs.com/package/@cortexui/runtime) | 1.1.1 | Browser runtime that installs `window.__CORTEX_UI__` |
+| `testing` | [`@cortexui/testing`](https://www.npmjs.com/package/@cortexui/testing) | 1.1.1 | Contract validation utilities and vitest matchers |
+| `tokens` | [`@cortexui/tokens`](https://www.npmjs.com/package/@cortexui/tokens) | 1.1.1 | Design tokens — colors, spacing, typography, radius |
 
 ---
 
