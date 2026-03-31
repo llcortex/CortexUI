@@ -34,7 +34,7 @@ export interface StatusBannerProps extends PrimitiveBoxProps {
 }
 
 export interface ConfirmDialogProps
-  extends Omit<DialogBaseProps, "ariaLabel" | "ariaLabelledBy" | "children"> {
+  extends Omit<DialogBaseProps, "ariaLabel" | "ariaLabelledBy" | "children" | "title"> {
   readonly aiId: string;
   readonly title: ReactNode;
   readonly description?: ReactNode;

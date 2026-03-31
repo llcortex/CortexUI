@@ -243,7 +243,6 @@ export interface AIAttributeElement {
   readonly hasAttribute?: (name: string) => boolean;
   readonly attributes?: IterableLike<{ readonly name: string; readonly value: string }>;
   readonly dataset?: Record<string, string | undefined>;
-  readonly [key: string]: unknown;
 }
 
 /**
@@ -405,7 +404,11 @@ function normalizeStates(state: AIAttributeConfig["state"]): string | undefined 
     return undefined;
   }
 
-  return Array.isArray(state) ? state.join(",") : state;
+  if (Array.isArray(state)) {
+    return state.join(",");
+  }
+
+  return state as string;
 }
 
 function readAttribute(element: AIAttributeElement, name: AIAttributeName): string | undefined {
@@ -424,7 +427,7 @@ function readAttribute(element: AIAttributeElement, name: AIAttributeName): stri
     }
   }
 
-  const recordValue = element[name];
+  const recordValue = (element as Record<string, unknown>)[name];
   if (typeof recordValue === "string") {
     return recordValue;
   }

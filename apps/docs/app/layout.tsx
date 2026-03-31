@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "@/components/theme-provider";
+import { AIViewOverlay } from "@/components/ai-view-overlay";
 import { AIViewProvider } from "@/components/ai-view-toggle";
+import { DocsRuntimeBridge } from "@/components/docs-runtime-bridge";
 import { Search } from "@/components/search";
 import "@/app/globals.css";
 
@@ -19,7 +21,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <AIViewProvider>
+            <DocsRuntimeBridge />
             {children}
+            <AIViewOverlay />
             <Search />
           </AIViewProvider>
         </ThemeProvider>

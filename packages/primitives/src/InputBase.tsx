@@ -17,10 +17,10 @@ const inputBaseStyle: CSSProperties = {
 };
 
 export const InputBase = forwardRef<HTMLInputElement, InputBaseProps>(
-  ({ aria-invalid, className, invalid = false, style, ...rest }, ref) => (
+  ({ className, invalid = false, style, ...rest }, ref) => (
     <input
       {...rest}
-      aria-invalid={invalid || aria-invalid ? true : undefined}
+      aria-invalid={invalid || rest["aria-invalid"] ? true : undefined}
       className={className}
       ref={ref}
       style={{

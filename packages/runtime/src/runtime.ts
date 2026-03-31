@@ -430,8 +430,8 @@ function unique<T>(values: readonly T[]): T[] {
   return Array.from(new Set(values));
 }
 
-function isDefined<T>(value: T | undefined): value is T {
-  return value !== undefined;
+function isDefined<T>(value: T | null | undefined): value is T {
+  return value !== undefined && value !== null;
 }
 
 function cssEscape(value: string): string {

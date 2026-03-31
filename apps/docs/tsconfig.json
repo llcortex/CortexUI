@@ -14,11 +14,31 @@
         "name": "next"
       }
     ],
-    "rootDir": ".",
     "baseUrl": ".",
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@cortexui/ai-contract": [
+        "../../packages/ai-contract/src/index.ts"
+      ],
+      "@cortexui/components": [
+        "../../packages/components/src/index.ts"
+      ],
+      "@cortexui/primitives": [
+        "../../packages/primitives/src/index.ts"
+      ],
+      "@cortexui/runtime": [
+        "../../packages/runtime/src/index.ts"
+      ],
+      "@cortexui/tokens": [
+        "../../packages/tokens/src/index.ts"
+      ],
+      "react": [
+        "./node_modules/@types/react/index.d.ts"
+      ],
+      "react-dom": [
+        "./node_modules/@types/react-dom/index.d.ts"
       ]
     },
     "types": [
@@ -38,19 +58,5 @@
   ],
   "exclude": [
     "node_modules"
-  ],
-  "references": [
-    {
-      "path": "../../packages/ai-contract"
-    },
-    {
-      "path": "../../packages/components"
-    },
-    {
-      "path": "../../packages/primitives"
-    },
-    {
-      "path": "../../packages/runtime"
-    }
   ]
 }

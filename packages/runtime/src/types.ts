@@ -46,7 +46,7 @@ export interface RuntimeEventLogEntry {
   readonly type: AIEvent | "mutation_observed" | "screen_context_changed";
   readonly timestamp: number;
   readonly targetId?: string;
-  readonly detail?: Readonly<Record<string, unknown>>;
+  readonly detail?: unknown;
 }
 
 export interface RuntimeRegistry {

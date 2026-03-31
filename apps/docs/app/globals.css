@@ -35,3 +35,58 @@
     scrollbar-color: theme('colors.slate.700') transparent;
   }
 }
+
+/* AI View mode — applied via html.ai-view */
+.ai-view article [data-ai-role="action"] {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
+  position: relative;
+}
+
+.ai-view article [data-ai-role="field"] {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  position: relative;
+}
+
+.ai-view article [data-ai-role="form"] {
+  outline: 2px solid #22c55e;
+  outline-offset: 4px;
+  position: relative;
+}
+
+.ai-view article [data-ai-role="table"] {
+  outline: 2px solid #a855f7;
+  outline-offset: 2px;
+  position: relative;
+}
+
+.ai-view article [data-ai-role="modal"] {
+  outline: 2px solid #ef4444;
+  outline-offset: 2px;
+  position: relative;
+}
+
+.ai-view article [data-ai-role="screen"] {
+  outline: 2px solid #14b8a6;
+  outline-offset: 6px;
+  position: relative;
+}
+
+.ai-view article [data-ai-role="status"] {
+  outline: 2px solid #eab308;
+  outline-offset: 2px;
+  position: relative;
+}
+
+.ai-view article [data-ai-role="nav-item"] {
+  outline: 2px solid #ec4899;
+  outline-offset: 2px;
+  position: relative;
+}
+
+.ai-view article [data-ai-role="section"] {
+  outline: 2px dashed #64748b;
+  outline-offset: 4px;
+  position: relative;
+}
