@@ -8,6 +8,7 @@ import "@/app/globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://cortexui.llcortex.ai";
 const socialImageAlt = "CortexUI social preview showing UI that speaks to humans and machines.";
+const socialImageUrl = `${siteUrl}/social-preview.png`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -29,7 +30,7 @@ export const metadata: Metadata = {
       "UI that speaks to humans and machines. CortexUI makes interfaces visually usable for people and programmatically operable for AI agents.",
     images: [
       {
-        url: "/opengraph-image",
+        url: socialImageUrl,
         width: 1290,
         height: 970,
         alt: socialImageAlt
@@ -43,7 +44,7 @@ export const metadata: Metadata = {
       "UI that speaks to humans and machines. CortexUI makes interfaces visually usable for people and programmatically operable for AI agents.",
     images: [
       {
-        url: "/opengraph-image",
+        url: socialImageUrl,
         alt: socialImageAlt
       }
     ]

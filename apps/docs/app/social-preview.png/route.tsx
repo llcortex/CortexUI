@@ -1,13 +1,8 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "CortexUI social preview showing UI that speaks to humans and machines.";
-export const size = {
-  width: 1290,
-  height: 970
-};
-export const contentType = "image/png";
+export const runtime = "edge";
 
-export default function OpenGraphImage(): ImageResponse {
+export async function GET(): Promise<ImageResponse> {
   return new ImageResponse(
     (
       <div
@@ -21,8 +16,7 @@ export default function OpenGraphImage(): ImageResponse {
           fontFamily: "Arial, sans-serif",
           height: "100%",
           justifyContent: "flex-start",
-          padding: "42px 56px 54px",
-          position: "relative",
+          padding: "42px 56px 48px",
           width: "100%"
         }}
       >
@@ -56,22 +50,22 @@ export default function OpenGraphImage(): ImageResponse {
           style={{
             display: "flex",
             flexDirection: "column",
-            fontSize: 168,
+            fontSize: 154,
             fontWeight: 700,
             letterSpacing: "-0.08em",
-            lineHeight: 0.92,
-            marginTop: 112,
+            lineHeight: 0.88,
+            marginTop: 92,
             textAlign: "center"
           }}
         >
-          <span style={{ display: "flex" }}>UI that speaks</span>
-          <span style={{ display: "flex", justifyContent: "center", marginTop: 20 }}>to</span>
+          <span style={{ display: "flex", justifyContent: "center" }}>UI that speaks</span>
+          <span style={{ display: "flex", justifyContent: "center", marginTop: 18 }}>to</span>
           <span
             style={{
               color: "#ff4b22",
               display: "flex",
               justifyContent: "center",
-              marginTop: 30
+              marginTop: 24
             }}
           >
             humans and
@@ -81,7 +75,7 @@ export default function OpenGraphImage(): ImageResponse {
               color: "#ff4b22",
               display: "flex",
               justifyContent: "center",
-              marginTop: 14
+              marginTop: 8
             }}
           >
             machines
@@ -89,6 +83,9 @@ export default function OpenGraphImage(): ImageResponse {
         </div>
       </div>
     ),
-    size
+    {
+      width: 1290,
+      height: 970
+    }
   );
 }
