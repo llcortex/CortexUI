@@ -225,7 +225,7 @@ importers:
   packages/ai-contract:
     devDependencies:
       tsup:
-        specifier: ^8.3.0
+        specifier: ^8.5.1
         version: 8.5.1(jiti@1.21.7)(postcss@8.5.8)(tsx@4.21.0)(typescript@5.9.3)
 
   packages/components:
@@ -253,7 +253,7 @@ importers:
         specifier: ^18.3.0
         version: 18.3.7(@types/react@18.3.28)
       tsup:
-        specifier: ^8.3.0
+        specifier: ^8.5.1
         version: 8.5.1(jiti@1.21.7)(postcss@8.5.8)(tsx@4.21.0)(typescript@5.9.3)
 
   packages/primitives:
@@ -275,7 +275,7 @@ importers:
         specifier: ^18.3.0
         version: 18.3.7(@types/react@18.3.28)
       tsup:
-        specifier: ^8.3.0
+        specifier: ^8.5.1
         version: 8.5.1(jiti@1.21.7)(postcss@8.5.8)(tsx@4.21.0)(typescript@5.9.3)
 
   packages/runtime:
@@ -285,7 +285,7 @@ importers:
         version: link:../ai-contract
     devDependencies:
       tsup:
-        specifier: ^8.3.0
+        specifier: ^8.5.1
         version: 8.5.1(jiti@1.21.7)(postcss@8.5.8)(tsx@4.21.0)(typescript@5.9.3)
 
   packages/testing:
@@ -298,13 +298,13 @@ importers:
         version: link:../components
     devDependencies:
       tsup:
-        specifier: ^8.3.0
+        specifier: ^8.5.1
         version: 8.5.1(jiti@1.21.7)(postcss@8.5.8)(tsx@4.21.0)(typescript@5.9.3)
 
   packages/tokens:
     devDependencies:
       tsup:
-        specifier: ^8.3.0
+        specifier: ^8.5.1
         version: 8.5.1(jiti@1.21.7)(postcss@8.5.8)(tsx@4.21.0)(typescript@5.9.3)
 
   tooling/eslint-config: {}
