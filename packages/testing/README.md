@@ -1,7 +1,24 @@
-# @cortexui/testing
+> [!WARNING]
+> **CortexUI has been renamed to DOMglyph.**
+>
+> `@cortexui/testing` is **no longer maintained**. All future development, bug fixes, and releases happen under the new package:
+>
+> **➜ [`@domglyph/testing`](https://www.npmjs.com/package/@domglyph/testing) — starting at v2.0.0**
+>
+> Please migrate at your earliest convenience:
+> ```bash
+> npm uninstall @cortexui/testing
+> npm install @domglyph/testing
+> ```
+> Then update all imports from `'@cortexui/testing'` to `'@domglyph/testing'`.
+
+---
+
+# @cortexui/testing *(deprecated)*
 
 [![npm version](https://img.shields.io/npm/v/@cortexui/testing?color=0ea5e9)](https://www.npmjs.com/package/@cortexui/testing)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](../../LICENSE)
+[![deprecated](https://img.shields.io/badge/status-deprecated-red.svg)](https://www.npmjs.com/package/@domglyph/testing)
 
 AI contract validation and testing utilities for CortexUI.
 

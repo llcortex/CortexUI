@@ -1,9 +1,26 @@
-# @cortexui/components
+> [!WARNING]
+> **CortexUI has been renamed to DOMglyph.**
+>
+> `@cortexui/components` is **no longer maintained**. All future development, bug fixes, and releases happen under the new package:
+>
+> **➜ [`@domglyph/components`](https://www.npmjs.com/package/@domglyph/components) — starting at v2.0.0**
+>
+> Please migrate at your earliest convenience:
+> ```bash
+> npm uninstall @cortexui/components
+> npm install @domglyph/components
+> ```
+> Then update all imports from `'@cortexui/components'` to `'@domglyph/components'`.
+
+---
+
+# @cortexui/components *(deprecated)*
 
 [![npm version](https://img.shields.io/npm/v/@cortexui/components?color=0ea5e9)](https://www.npmjs.com/package/@cortexui/components)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](../../LICENSE)
+[![deprecated](https://img.shields.io/badge/status-deprecated-red.svg)](https://www.npmjs.com/package/@domglyph/components)
 
-React components with built-in AI contracts.
+React components with built-in AI contracts — now continued as [`@domglyph/components`](https://www.npmjs.com/package/@domglyph/components).
 
 ---
 

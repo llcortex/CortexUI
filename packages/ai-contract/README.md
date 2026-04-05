@@ -1,9 +1,26 @@
-# @cortexui/ai-contract
+> [!WARNING]
+> **CortexUI has been renamed to DOMglyph.**
+>
+> `@cortexui/ai-contract` is **no longer maintained**. All future development, bug fixes, and releases happen under the new package:
+>
+> **➜ [`@domglyph/ai-contract`](https://www.npmjs.com/package/@domglyph/ai-contract) — starting at v2.0.0**
+>
+> Please migrate at your earliest convenience:
+> ```bash
+> npm uninstall @cortexui/ai-contract
+> npm install @domglyph/ai-contract
+> ```
+> Then update all imports from `'@cortexui/ai-contract'` to `'@domglyph/ai-contract'`.
+
+---
+
+# @cortexui/ai-contract *(deprecated)*
 
 [![npm version](https://img.shields.io/npm/v/@cortexui/ai-contract?color=0ea5e9)](https://www.npmjs.com/package/@cortexui/ai-contract)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](../../LICENSE)
+[![deprecated](https://img.shields.io/badge/status-deprecated-red.svg)](https://www.npmjs.com/package/@domglyph/ai-contract)
 
-The machine-readable interface specification for CortexUI.
+The machine-readable interface specification for CortexUI — now continued as [`@domglyph/ai-contract`](https://www.npmjs.com/package/@domglyph/ai-contract).
 
 ---
 

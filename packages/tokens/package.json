@@ -1,6 +1,6 @@
 {
   "name": "@cortexui/tokens",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -15,6 +15,7 @@
     "dist"
   ],
   "scripts": {
+    "postinstall": "node -e \"process.stderr.write('\\n⚠️  DEPRECATED: @cortexui/tokens is no longer maintained.\\nCortexUI has been renamed to DOMglyph. Please migrate:\\n  npm uninstall @cortexui/tokens\\n  npm install @domglyph/tokens\\nSee: https://www.npmjs.com/package/@domglyph/tokens\\n\\n')\"",
     "build": "tsup src/index.ts --format esm --dts --clean",
     "dev": "tsup src/index.ts --format esm --dts --watch",
     "lint": "eslint src --ext .ts",

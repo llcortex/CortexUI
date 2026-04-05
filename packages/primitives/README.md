@@ -1,7 +1,24 @@
-# @cortexui/primitives
+> [!WARNING]
+> **CortexUI has been renamed to DOMglyph.**
+>
+> `@cortexui/primitives` is **no longer maintained**. All future development, bug fixes, and releases happen under the new package:
+>
+> **➜ [`@domglyph/primitives`](https://www.npmjs.com/package/@domglyph/primitives) — starting at v2.0.0**
+>
+> Please migrate at your earliest convenience:
+> ```bash
+> npm uninstall @cortexui/primitives
+> npm install @domglyph/primitives
+> ```
+> Then update all imports from `'@cortexui/primitives'` to `'@domglyph/primitives'`.
+
+---
+
+# @cortexui/primitives *(deprecated)*
 
 [![npm version](https://img.shields.io/npm/v/@cortexui/primitives?color=0ea5e9)](https://www.npmjs.com/package/@cortexui/primitives)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](../../LICENSE)
+[![deprecated](https://img.shields.io/badge/status-deprecated-red.svg)](https://www.npmjs.com/package/@domglyph/primitives)
 
 Low-level accessible UI primitives. The foundation of CortexUI components.
 

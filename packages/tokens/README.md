@@ -1,7 +1,24 @@
-# @cortexui/tokens
+> [!WARNING]
+> **CortexUI has been renamed to DOMglyph.**
+>
+> `@cortexui/tokens` is **no longer maintained**. All future development, bug fixes, and releases happen under the new package:
+>
+> **➜ [`@domglyph/tokens`](https://www.npmjs.com/package/@domglyph/tokens) — starting at v2.0.0**
+>
+> Please migrate at your earliest convenience:
+> ```bash
+> npm uninstall @cortexui/tokens
+> npm install @domglyph/tokens
+> ```
+> Then update all imports from `'@cortexui/tokens'` to `'@domglyph/tokens'`.
+
+---
+
+# @cortexui/tokens *(deprecated)*
 
 [![npm version](https://img.shields.io/npm/v/@cortexui/tokens?color=0ea5e9)](https://www.npmjs.com/package/@cortexui/tokens)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](../../LICENSE)
+[![deprecated](https://img.shields.io/badge/status-deprecated-red.svg)](https://www.npmjs.com/package/@domglyph/tokens)
 
 Design tokens for CortexUI — colors, spacing, typography, and more.
 
