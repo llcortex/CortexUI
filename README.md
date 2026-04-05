@@ -1,5 +1,7 @@
-# CortexUI
+# CortexUI is now [DOMGlyph](https://github.com/llcortex/CortexUI/)
 
+## Use [DOMGlyph](https://github.com/llcortex/CortexUI/) instead.
+---
 [![npm version](https://img.shields.io/npm/v/@cortexui/components?label=%40cortexui%2Fcomponents&color=0ea5e9)](https://www.npmjs.com/package/@cortexui/components)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
