@@ -4,6 +4,8 @@ import { AIViewOverlay } from "@/components/ai-view-overlay";
 import { AIViewProvider } from "@/components/ai-view-toggle";
 import { DocsRuntimeBridge } from "@/components/docs-runtime-bridge";
 import { Search } from "@/components/search";
+import { RebrandOverlay } from "@/components/rebrand-overlay";
+import { AnnouncementBar } from "@/components/announcement-bar";
 import "@/app/globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://cortexui.llcortex.ai";
@@ -57,10 +59,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <AIViewProvider>
+            <AnnouncementBar />
             <DocsRuntimeBridge />
             {children}
             <AIViewOverlay />
             <Search />
+            <RebrandOverlay />
           </AIViewProvider>
         </ThemeProvider>
       </body>
